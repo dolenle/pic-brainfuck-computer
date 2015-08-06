@@ -1,0 +1,9 @@
+Message[302] /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm 66 : Register in operand not in bank 0.  Ensure that bank bits are correct.
+Message[302] /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm 68 : Register in operand not in bank 0.  Ensure that bank bits are correct.
+Message[302] /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm 111 : Register in operand not in bank 0.  Ensure that bank bits are correct.
+Message[302] /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm 175 : Register in operand not in bank 0.  Ensure that bank bits are correct.
+Message[302] /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm 194 : Register in operand not in bank 0.  Ensure that bank bits are correct.
+Message[302] /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm 196 : Register in operand not in bank 0.  Ensure that bank bits are correct.
+Message[302] /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm 198 : Register in operand not in bank 0.  Ensure that bank bits are correct.
+Message[302] /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm 199 : Register in operand not in bank 0.  Ensure that bank bits are correct.
+Message[302] /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm 203 : Register in operand not in bank 0.  Ensure that bank bits are correct.
