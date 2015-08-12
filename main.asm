@@ -10,6 +10,7 @@
 ;101 ]
 ;110 >
 ;111 [
+;0x0F END
 
     LIST    P=PIC16F84, R=hex
     INCLUDE "p16F84.inc"   ;include chip-specific constants
@@ -21,18 +22,18 @@
 #define srclock PORTB, 3 ;Actual pin 9
 #define srlatch PORTB, 1 ;Actual pin 7
 
-#define lcdmode CELL, 7 ;LCD status bit (command/data)
-#define bfcmode CELL, 6 ;mode bit (edit/run)
+#define lcdmode STA, 7 ;LCD status bit (command/data)
+#define bfcmode STA, 6 ;mode bit (edit/run)
     
-#define celloffset 0x12
+#define cellstart 0x11
+#define	cellend	0x4F ;last GPR on the 16F84
 
 ; Various special registers:
 COUNT   EQU 0x0C    ;counter value
 DELAY   EQU 0x0D    ;millisecond delay
 BUFF	EQU 0x0E    ;EEPROM/LCD data buffer
-STA     EQU 0x0F    ;Stack pointer (lower 3 bits)
-CELL    EQU 0x10    ;brainfuck cell pointer (upper 2 bits for status)
-INST    EQU 0x11    ;brainfuck "program counter" and input pointer
+STA     EQU 0x0F    ;Stack pointer (lower 3 bits) and status/LCD mode (upper 2)
+INST    EQU 0x10    ;brainfuck "program counter" and input pointer
 
     ORG 0x2100 ;preload in eeprom
     de 0xFF
@@ -112,9 +113,9 @@ disp:
     bsf     STATUS, RP0 ;bank 1
     bsf     EECON1, RD  ;read EEPROM, EEDATA contains byte
     bcf     STATUS, RP0
-    btfss   INST, 0 ;check if even
+    btfss   INST, 0 ;check if even and swap
     swapf   EEDATA, F
-    movfw   EEDATA
+    movfw   EEDATA ;check for EOF
     andlw   0x0F
     sublw   0x0F
     btfsc   STATUS, Z
@@ -146,7 +147,9 @@ idle:
 run_loop:
     bcf     bfcmode ;run mode
     clrf    INST ;clear instruction pointer
-    clrf    STA
+    clrf    STA	;clear stack
+    movlw   cellstart
+    movwf   FSR	;move cell pointer to start
     clrf    EEADR
 
     goto    idle
@@ -333,22 +336,28 @@ lcd_line2: ;move lcd cursor to the 2nd line
 
 ;Brainfuck command routines
 inc_ptr ;increment data pointer (<)
-    incf    CELL, F
+    incf    FSR, F
+    movlw   cellend+1	;check overflow
+    subwf   FSR, W
+    movlw   cellstart	;loop back
+    btfsc   STATUS, C
+    movwf   FSR
     return
 
 dec_ptr ;decrement data pointer (>)
-    decf    CELL, F
+    decf    FSR, F
+    movlw   cellstart	;check overflow
+    subwf   FSR, W
+    movlw   cellend ;loop back
+    btfss   STATUS, C
+    movwf   FSR
     return
 
 inc_cell ;increment byte (+)
-    movfw   CELL
-    movwf   FSR
     incf    INDF, F
     return
 
 dec_cell ;decement byte (-)
-    movfw   CELL
-    movwf   FSR
     decf    INDF, F
     return
 ;
