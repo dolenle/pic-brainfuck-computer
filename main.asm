@@ -23,17 +23,19 @@
 
 #define lcdmode CELL, 7 ;LCD status bit (command/data)
 #define bfcmode CELL, 6 ;mode bit (edit/run)
+    
+#define celloffset 0x12
 
 ; Various special registers:
 COUNT   EQU 0x0C    ;counter value
 DELAY   EQU 0x0D    ;millisecond delay
 BUFF	EQU 0x0E    ;EEPROM/LCD data buffer
 STA     EQU 0x0F    ;Stack pointer (lower 3 bits)
-CELL    EQU 0x10    ;brainfuck cell pointer - upper 2 status bits
+CELL    EQU 0x10    ;brainfuck cell pointer (upper 2 bits for status)
 INST    EQU 0x11    ;brainfuck "program counter" and input pointer
 
     ORG 0x2100 ;preload in eeprom
-    de 0x44
+    de 0xFF
 
     ORG 0x00
     goto	start
@@ -110,40 +112,23 @@ disp:
     bsf     STATUS, RP0 ;bank 1
     bsf     EECON1, RD  ;read EEPROM, EEDATA contains byte
     bcf     STATUS, RP0
+    btfss   INST, 0 ;check if even
+    swapf   EEDATA, F
     movfw   EEDATA
-    btfss   INST, 0
-    swapf   EEDATA, W
+    andlw   0x0F
+    sublw   0x0F
+    btfsc   STATUS, Z
+    goto    edit_start
+    movfw   EEDATA
     andlw   0x07
     movwf   BUFF
-
-    ;Write BUFF to LCD:
-    movfw   BUFF
-    btfsc   BUFF, 2 ;check 3rd bit for instruction type
-    goto    xptrops
-    addlw   0x03 ;convert to ascii
-    iorlw   0x28
-    movwf   BUFF
-    goto    xisr_editor_cont ;skip ptrops
-
-xptrops:     ;handles pointer control commands (< > and [ ])
-    iorlw   0x3C ;< >
-    btfsc   BUFF, 0 ;check 0th bit
-    xorlw   0x60 ;_ ]
-    movwf   BUFF
-    sublw   0x5F ;correct _ into [
-    btfsc   STATUS, Z
-    bcf     BUFF, 2
-
-xisr_editor_cont:
-    call    lcd_write
+    call    lcd_print_cmd
     incf    INST, F
-    movfw   INST
-    sublw   0x0F
-    btfss   STATUS, Z
     goto    disp
     
+edit_start:
     movlw   0xFF
-    movwf   DELAY ;delay ~0.5 second for splash screen
+    movwf   DELAY ;delay ~0.5 second
     call    wait
     movlw   0xFF
     movwf   DELAY
@@ -179,14 +164,14 @@ isr_editor:     ;write command (in W) to eeprom and LCD (as ASCII)
     goto    write_odd
     swapf   BUFF, W
     xorwf   EEDATA, W
-    andlw   0xF0    ;keep lower nibble
+    andlw   0xF0    ;keep upper nibble
     xorwf   EEDATA, F
     goto    isr_editor_cont1
 
 write_odd:
     movfw   BUFF
     xorwf   EEDATA, W
-    andlw   0x0F    ;keep upper nibble
+    andlw   0x0F    ;keep lower nibble
     xorwf   EEDATA, F
 
 isr_editor_cont1:
@@ -207,28 +192,7 @@ isr_editor_cont1:
     swapf   EEDATA, W
     andlw   0x07
     movwf   BUFF
-    
-    
-    ;Write BUFF to LCD:
-    movfw   BUFF
-    btfsc   BUFF, 2 ;check 3rd bit
-    goto    ptrops
-    addlw   0x03 ;convert to ascii
-    iorlw   0x28
-    movwf   BUFF
-    goto    isr_editor_cont2 ;skip ptrops
-
-ptrops:     ;pointer control commands (< > and [ ])
-    iorlw   0x3C ;< >
-    btfsc   BUFF, 0 ;check 0th bit
-    xorlw   0x60 ;_ ]
-    movwf   BUFF
-    sublw   0x5F ;correct _ into [
-    btfsc   STATUS, Z
-    bcf     BUFF, 2
-
-isr_editor_cont2:
-    call    lcd_write
+    call    lcd_print_cmd
     incf    INST, F
     movfw   INST
     sublw   0x10
@@ -245,6 +209,28 @@ isr_editor_cont2:
 
 isr_input:      ;write byte to cell
     retfie
+    
+lcd_print_cmd: ;convert BF command in BUFF to ASCII and write to LCD
+    movfw   BUFF
+    btfsc   BUFF, 2 ;check 3rd bit
+    goto    lcd_print_ptr
+    addlw   0x03 ;convert to ascii
+    iorlw   0x28
+    movwf   BUFF
+    goto    lcd_print_cmd2 ; not a pointer cmd
+
+lcd_print_ptr:     ;pointer control commands (< > and [ ])
+    iorlw   0x3C ;< >
+    btfsc   BUFF, 0 ;check 0th bit
+    xorlw   0x60 ;_ ]
+    movwf   BUFF
+    sublw   0x5F ;correct _ into [
+    btfsc   STATUS, Z
+    bcf     BUFF, 2
+
+lcd_print_cmd2:
+    call    lcd_write
+    return
 
 lcd_write:      ;write BUFF to the LCD via shift register
     call    shift4
@@ -334,7 +320,7 @@ resetLCD:    ;initialize LCD - E, RS and D4-D7 to lower 6 bits of 4094
     movlw   b'00000110'   ;enter data, auto increment addr.
     movwf   BUFF
     call    lcd_write
-    bsf     lcdmode ;back to lcd data mode
+    bsf     lcdmode	;back to lcd data mode
     return
 
 lcd_line2: ;move lcd cursor to the 2nd line
@@ -345,17 +331,26 @@ lcd_line2: ;move lcd cursor to the 2nd line
     bsf     lcdmode ;back to data mode
     return
 
-;inc_ptr ;increment data pointer (<)
-;    return
-;
-;dec_ptr ;decrement data pointer (>)
-;    return
-;
-;inc_cell ;increment byte (+)
-;    return
-;
-;dec_cell ;decement byte (-)
-;    return
+;Brainfuck command routines
+inc_ptr ;increment data pointer (<)
+    incf    CELL, F
+    return
+
+dec_ptr ;decrement data pointer (>)
+    decf    CELL, F
+    return
+
+inc_cell ;increment byte (+)
+    movfw   CELL
+    movwf   FSR
+    incf    INDF, F
+    return
+
+dec_cell ;decement byte (-)
+    movfw   CELL
+    movwf   FSR
+    decf    INDF, F
+    return
 ;
 ;out_cell ;display byte on LCD  (.)
 ;    return
