@@ -10,7 +10,7 @@
 ;101 ]
 ;110 >
 ;111 [
-;0x0F END
+;0x0F EOF
 
     LIST    P=PIC16F84, R=hex
     INCLUDE "p16F84.inc"   ;include chip-specific constants
@@ -25,8 +25,9 @@
 #define lcdmode STA, 7 ;LCD status bit (command/data)
 #define bfcmode STA, 6 ;mode bit (edit/run)
     
-#define cellstart 0x11
+#define cellstart 0x19 ;first available cell
 #define	cellend	0x4F ;last GPR on the 16F84
+#define	stackoffset 0x11
 
 ; Various special registers:
 COUNT   EQU 0x0C    ;counter value
@@ -34,24 +35,26 @@ DELAY   EQU 0x0D    ;millisecond delay
 BUFF	EQU 0x0E    ;EEPROM/LCD data buffer
 STA     EQU 0x0F    ;Stack pointer (lower 3 bits) and status/LCD mode (upper 2)
 INST    EQU 0x10    ;brainfuck "program counter" and input pointer
+    
+; REGISTERS 0x11 thru 0x18 RESERVED FOR LOOP STACK
 
     ORG 0x2100 ;preload in eeprom
     de 0xFF
 
     ORG 0x00
-    goto	start
+    goto    start
 
     ORG 0x04 ;ISR
     
     btfss   INTCON, INTF ;external interrupt (buttons) or onchange?
-    goto    isr2    ;skip
+    goto    isr2    ;INTF clear, interrupt not caused by encoder
     bcf     INTCON, INTF ;clear ext interrupt flag
     movfw   PORTA   ;quickly, read input into W
     andlw   0x07    ;keep 3 bits
     btfsc   bfcmode     ;check mode
     goto    isr_editor  ;edit
     goto    isr_input   ;input
-isr2:    ;continue
+isr2:    ;PORTB onchange interrupt (run bttn)
     movlw   0x3C
     movwf   BUFF
     call    lcd_write
@@ -59,14 +62,25 @@ isr2:    ;continue
     
     retfie ;return
 
-msg:					;splash msg
-    addwf   PCL, f
+msg:	    ;splash msg lookup table
+    addwf   PCL, F
     dt "PIC Brainfuck", 0
+    
+bf_decode:  ;BF instruction table
+    addwf   PCL, F
+    call    inc_cell	;+
+    ;call   in_cell	;,
+    call    dec_cell	;-
+    call    out_cell	;.
+    call    dec_ptr	;<
+    call    loop_end	;]
+    call    inc_ptr	;>
+    call    loop_start	;[
 
 start:
     bsf     STATUS, RP0	;Bank 1
-    movlw   0x01	; input on pin 0
-    movwf   TRISB	;set PORTB output
+    movlw   0xF1	;input on pin RB0 and RB4:7
+    movwf   TRISB	;set PORTB tristate
     movlw   0x0F
     movwf   TRISA	;set PORTA input
     bcf     STATUS, RP0	;bank 0
@@ -140,19 +154,28 @@ edit_start:
     bsf     INTCON, INTE    ;enable ext. interrupt on RB0
     bsf     INTCON, GIE	    ;global interrupt enable
 
-idle:
-    nop
-    goto idle
 
-run_loop:
+run:
     bcf     bfcmode ;run mode
     clrf    INST ;clear instruction pointer
     clrf    STA	;clear stack
     movlw   cellstart
     movwf   FSR	;move cell pointer to start
     clrf    EEADR
-
-    goto    idle
+   
+run_loop:
+    ;Begin running BF code
+    bcf	    STATUS, C
+    rrf     INST, W
+    movwf   EEADR
+    bsf     STATUS, RP0 ;bank 1
+    bsf     EECON1, RD  ;read EEPROM, EEDATA contains byte
+    bcf     STATUS, RP0	;bank 0
+    movfw   EEDATA
+    btfss   INST, 0 ;If even instruction, swap nibbles
+    swapf   EEDATA, W
+    andlw   0x0F
+    goto    bf_decode
 
 isr_editor:     ;write command (in W) to eeprom and LCD (as ASCII)
     movwf   BUFF  ;store input temporarily
@@ -180,15 +203,14 @@ write_odd:
 isr_editor_cont1:
     bsf     STATUS, RP0 ;bank 1
     bsf     EECON1, WREN ;enable eeprom write
+    bcf	    INTCON, GIE	;disable interrupts
     movlw   0x55
     movwf   EECON2
     movlw   0xAA
-    movwf   EECON2 ;initialization procedure
-    bsf     EECON1, WR
-    bcf     STATUS, RP0
-
-    bsf     STATUS, RP0 ;bank 1
-    bsf     EECON1, RD  ;read EEPROM, EEDATA contains byte
+    movwf   EECON2 ;EEPROM write initialization procedure
+    bsf     EECON1, WR	;do the write
+    bsf	    INTCON, GIE	;enable interrupts
+    bsf     EECON1, RD  ;back to read mode
     bcf     STATUS, RP0
     movfw   EEDATA
     btfss   INST, 0
@@ -210,7 +232,7 @@ isr_editor_cont1:
     call    resetLCD   ;clear the screen
     retfie
 
-isr_input:      ;write byte to cell
+isr_input:      ;run-mode input ISR
     retfie
     
 lcd_print_cmd: ;convert BF command in BUFF to ASCII and write to LCD
@@ -335,7 +357,7 @@ lcd_line2: ;move lcd cursor to the 2nd line
     return
 
 ;Brainfuck command routines
-inc_ptr ;increment data pointer (<)
+inc_ptr:    ;increment data pointer (<)
     incf    FSR, F
     movlw   cellend+1	;check overflow
     subwf   FSR, W
@@ -344,7 +366,7 @@ inc_ptr ;increment data pointer (<)
     movwf   FSR
     return
 
-dec_ptr ;decrement data pointer (>)
+dec_ptr:    ;decrement data pointer (>)
     decf    FSR, F
     movlw   cellstart	;check overflow
     subwf   FSR, W
@@ -353,18 +375,43 @@ dec_ptr ;decrement data pointer (>)
     movwf   FSR
     return
 
-inc_cell ;increment byte (+)
+inc_cell:   ;increment byte (+)
     incf    INDF, F
     return
 
-dec_cell ;decement byte (-)
+dec_cell:   ;decrement byte (-)
     decf    INDF, F
     return
-;
-;out_cell ;display byte on LCD  (.)
-;    return
-;
-;in_cell ;load input into byte (,)
+    
+loop_start: ;run to closing bracket while byte is nonzero ([)
+    movfw   INDF ;check if cell zero
+    btfsc   STATUS, Z
+    goto    loop_skip
+    movfw   FSR
+    movwf   BUFF    ;backup cell ptr
+    movfw   STA	    
+    andlw   0x07    ;get stack ptr
+    addlw   stackoffset	;add constant
+    movwf   FSR
+    movfw   INST
+    movwf   INDF    ;push INST onto stack
+    incf    STA, F  ;increment stack ptr
+    bcf	    STA, 3  ;mask 3rd bit
+    return
+
+loop_skip:  ;skip to closing bracket
+    incf    INST
+    
+    
+loop_end:    ;jump back to loop start
+
+out_cell:   ;display byte on LCD  (.)
+    movfw   INDF
+    movwf   BUFF
+    call    lcd_write
+    return
+
+;in_cell: ;load input into byte (,)
 ;    return
 
 wait:    ;wait approx. DELAY millisecs
