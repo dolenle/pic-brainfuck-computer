@@ -24,6 +24,7 @@
 
 #define lcdmode STA, 7 ;LCD status bit (command/data)
 #define bfcmode STA, 6 ;mode bit (edit/run)
+#define	loopskip STA, 5 ;loop skip flag
     
 #define cellstart 0x19 ;first available cell
 #define	cellend	0x4F ;last GPR on the 16F84
@@ -154,9 +155,14 @@ edit_start:
     bsf     INTCON, INTE    ;enable ext. interrupt on RB0
     bsf     INTCON, GIE	    ;global interrupt enable
 
+idle:
+    btfss   bfcmode ;check mode
+    goto    run
+    goto    idle
 
 run:
     bcf     bfcmode ;run mode
+    bcf	    loopskip	;clear loop skip flag
     clrf    INST ;clear instruction pointer
     clrf    STA	;clear stack
     movlw   cellstart
@@ -175,7 +181,20 @@ run_loop:
     btfss   INST, 0 ;If even instruction, swap nibbles
     swapf   EEDATA, W
     andlw   0x0F
+    btfsc   loopskip
+    goto    run_loop_skip
     goto    bf_decode
+    incf    INST, F
+    btfss   bfcmode ;check mode
+    goto    idle	;stop running
+    goto    run_loop ;continue
+    
+run_loop_skip:
+    sublw   0x05 ;check for ]
+    btfsc   STATUS, Z
+    bcf	    loopskip ;break out of skip loop
+    incf    INST, F
+    goto    run_loop	;continue
 
 isr_editor:     ;write command (in W) to eeprom and LCD (as ASCII)
     movwf   BUFF  ;store input temporarily
@@ -400,10 +419,10 @@ loop_start: ;run to closing bracket while byte is nonzero ([)
     return
 
 loop_skip:  ;skip to closing bracket
-    incf    INST
+    bsf	    loopskip ;set flag - instructions will be skipped in run_loop
+    return
     
-    
-loop_end:    ;jump back to loop start
+loop_end:    ;jump back to loop start (from stack)
 
 out_cell:   ;display byte on LCD  (.)
     movfw   INDF
