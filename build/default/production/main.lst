@@ -1,4 +1,4 @@
-MPASM 5.62  /USERS/DOLENLE/MPLABXPROJECTS/BF   8-5-2015  21:15:17         PAGE  1
+MPASM 5.62  /USERS/DOLENLE/MPLABXPROJECTS/BF   9-4-2015  15:03:16         PAGE  1
 
 
 LOC  OBJECT CODE     LINE SOURCE TEXT
@@ -16,9 +16,10 @@ LOC  OBJECT CODE     LINE SOURCE TEXT
                       00010 ;101 ]
                       00011 ;110 >
                       00012 ;111 [
-                      00013 
-                      00014     LIST    P=PIC16F84, R=hex
-                      00015     INCLUDE "p16F84.inc"   ;include chip-specific constants
+                      00013 ;0x0F EOF
+                      00014 
+                      00015     LIST    P=PIC16F84, R=hex
+                      00016     INCLUDE "p16F84.inc"   ;include chip-specific constants
                       00001         LIST
                       00002 
                       00003 ;==========================================================================
@@ -29,439 +30,522 @@ LOC  OBJECT CODE     LINE SOURCE TEXT
                       00008 ;==========================================================================
                       00009 
                       00207         LIST
-                      00016     
-2007   3FF2           00017     __CONFIG _CP_OFF & _PWRTE_ON & _WDT_OFF & _HS_OSC
-                      00018     ;Fuses: code protect off, poweron timer on, watchdog off, high-speed xtal
-                      00019 
-                      00020 #define srdata PORTB, 2 ;Actual pin 8
-                      00021 #define srclock PORTB, 3 ;Actual pin 9
-                      00022 #define srlatch PORTB, 1 ;Actual pin 7
-                      00023 
-                      00024 #define lcdmode CELL, 7 ;LCD status bit (command/data)
-                      00025 #define bfcmode CELL, 6 ;mode bit (edit/run)
-                      00026 
-                      00027 ; Various special registers:
-  0000000C            00028 COUNT   EQU 0x0C    ;counter value
-  0000000D            00029 DELAY   EQU 0x0D    ;millisecond delay
-  0000000E            00030 BUFF    EQU 0x0E    ;EEPROM/LCD data buffer
-  0000000F            00031 STA     EQU 0x0F    ;Stack pointer (lower 3 bits)
-  00000010            00032 CELL    EQU 0x10    ;brainfuck cell pointer - upper 2 status bits
-  00000011            00033 INST    EQU 0x11    ;brainfuck "program counter" and input pointer
-                      00034 
-                      00035     ORG 0x2100 ;preload in eeprom
-2100   0044           00036     de 0x44
-                      00037 
-                      00038     ORG 0x00
-0000   2???           00039     goto        start
-                      00040 
-                      00041     ORG 0x04 ;ISR
-                      00042     
-0004   1C8B           00043     btfss   INTCON, INTF ;external interrupt (buttons) or onchange?
-MPASM 5.62  /USERS/DOLENLE/MPLABXPROJECTS/BF   8-5-2015  21:15:17         PAGE  2
+                      00017     
+2007   3FF2           00018     __CONFIG _CP_OFF & _PWRTE_ON & _WDT_OFF & _HS_OSC
+                      00019     ;Fuses: code protect off, poweron timer on, watchdog off, high-speed xtal
+                      00020 
+                      00021 #define srdata PORTB, 2 ;Actual pin 8
+                      00022 #define srclock PORTB, 3 ;Actual pin 9
+                      00023 #define srlatch PORTB, 1 ;Actual pin 7
+                      00024 
+                      00025 #define lcdmode STA, 7 ;LCD status bit (command/data)
+                      00026 #define bfcmode STA, 6 ;mode bit (edit/run)
+                      00027 #define loopskip STA, 5 ;loop skip flag
+                      00028     
+                      00029 #define cellstart 0x19 ;first available cell
+                      00030 #define cellend 0x4F ;last GPR on the 16F84
+                      00031 #define stackoffset 0x11
+                      00032 
+                      00033 ; Various special registers:
+  0000000C            00034 COUNT   EQU 0x0C    ;counter value
+  0000000D            00035 DELAY   EQU 0x0D    ;millisecond delay
+  0000000E            00036 BUFF    EQU 0x0E    ;EEPROM/LCD data buffer
+  0000000F            00037 STA     EQU 0x0F    ;Stack pointer (lower 3 bits) and status/LCD mode (upper 2)
+  00000010            00038 INST    EQU 0x10    ;brainfuck "program counter" and input pointer
+                      00039     
+                      00040 ; REGISTERS 0x11 thru 0x18 RESERVED FOR LOOP STACK
+                      00041 
+                      00042     ORG 0x2100 ;preload in eeprom
+2100   0002 0075 0046 00043     de 0x2,0x75,0x46,0x31,0xF0
+MPASM 5.62  /USERS/DOLENLE/MPLABXPROJECTS/BF   9-4-2015  15:03:16         PAGE  2
 
 
 LOC  OBJECT CODE     LINE SOURCE TEXT
   VALUE
 
-0005   2???           00044     goto    isr2    ;skip
-0006   108B           00045     bcf     INTCON, INTF ;clear ext interrupt flag
-0007   0805           00046     movfw   PORTA   ;quickly, read input into W
-0008   3907           00047     andlw   0x07    ;keep 3 bits
-0009   1B10           00048     btfsc   bfcmode     ;check mode
-000A   2???           00049     goto    isr_editor  ;edit
-000B   2???           00050     goto    isr_input   ;input
-000C                  00051 isr2:    ;continue
-000C   303C           00052     movlw   0x3C
-000D   008E           00053     movwf   BUFF
-000E   2???           00054     call    lcd_write
-000F   108B           00055     bcf     INTCON, INTF
-                      00056     
-0010   0009           00057     retfie ;return
-                      00058 
-0011                  00059 msg:                                    ;splash msg
-0011   0782           00060     addwf   PCL, f
-0012   3450 3449 3443 00061     dt "PIC Brainfuck", 0
+       0031 00F0 
+                      00044 
+                      00045     ORG 0x00
+0000   2???           00046     goto    start
+                      00047 
+                      00048     ORG 0x04 ;ISR
+                      00049     
+0004   1C8B           00050     btfss   INTCON, INTF ;external interrupt (buttons) or onchange?
+0005   2???           00051     goto    isr2    ;INTF clear, interrupt not caused by encoder
+0006   108B           00052     bcf     INTCON, INTF ;clear ext interrupt flag
+0007   0805           00053     movfw   PORTA   ;quickly, read input into W
+0008   3907           00054     andlw   0x07    ;keep 3 bits
+0009   1B0F           00055     btfsc   bfcmode     ;check mode
+000A   2???           00056     goto    isr_editor  ;edit
+000B   2???           00057     goto    isr_input   ;input
+000C                  00058 isr2:    ;PORTB onchange interrupt (run bttn)
+000C   303C           00059     movlw   0x3C
+000D   008E           00060     movwf   BUFF
+000E   2???           00061     call    lcd_write
+000F   108B           00062     bcf     INTCON, INTF
+                      00063     
+0010   0009           00064     retfie ;return
+                      00065 
+0011                  00066 msg:        ;splash msg lookup table
+0011   0782           00067     addwf   PCL, F
+0012   3450 3449 3443 00068     dt "PIC Brainfuck", 0
        3420 3442 3472 
        3461 3469 346E 
        3466 3475 3463 
        346B 3400 
-                      00062 
-0020                  00063 start:
-0020   1683           00064     bsf     STATUS, RP0 ;Bank 1
-0021   3001           00065     movlw   0x01        ; input on pin 0
+                      00069     
+0020                  00070 bf_decode:  ;BF instruction table
+0020   0782           00071     addwf   PCL, F
+0021   2???           00072     goto    inc_cell    ;+
+0022   0008           00073     return ;call   in_cell      ;,
+0023   2???           00074     goto    dec_cell    ;-
+0024   2???           00075     goto    out_cell    ;.
+0025   2???           00076     goto    dec_ptr     ;<
+0026   2???           00077     goto    loop_end    ;]
+0027   2???           00078     goto    inc_ptr     ;>
+0028   2???           00079     goto    loop_start  ;[
+                      00080 
+0029                  00081 start:
+0029   1683           00082     bsf     STATUS, RP0 ;Bank 1
+002A   30F1           00083     movlw   0xF1        ;input on pin RB0 and RB4:7
 Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
-0022   0086           00066     movwf   TRISB       ;set PORTB output
-0023   300F           00067     movlw   0x0F
+002B   0086           00084     movwf   TRISB       ;set PORTB tristate
+002C   300F           00085     movlw   0x0F
 Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
-0024   0085           00068     movwf   TRISA       ;set PORTA input
-0025   1283           00069     bcf     STATUS, RP0 ;bank 0
-0026   0186           00070     clrf    PORTB
-0027   1103           00071     bcf     STATUS, Z
-                      00072 
-0028   3032           00073     movlw   .50
-0029   008D           00074     movwf   DELAY
-002A   2???           00075     call    wait   ;delay 50ms
-002B   2???           00076     call    resetLCD
-002C   2???           00077     call    wait50
-002D   0191           00078     clrf    INST
-                      00079 
-002E                  00080 splash:
-002E   0811           00081     movfw   INST    ;temporarily use INST as index
-002F   2???           00082     call    msg     ;get next char (retwl)
-0030   3800           00083     iorlw   0       ;branch if end of string
-0031   1903           00084     btfsc   STATUS, Z
-0032   2???           00085     goto    start_cont
-0033   008E           00086     movwf   BUFF
-0034   2???           00087     call    lcd_write
-0035   0A91           00088     incf    INST, F
-0036   301F           00089     movlw   0x1F
-0037   008D           00090     movwf   DELAY       ;create scroll effect
-MPASM 5.62  /USERS/DOLENLE/MPLABXPROJECTS/BF   8-5-2015  21:15:17         PAGE  3
+002D   0085           00086     movwf   TRISA       ;set PORTA input
+002E   1283           00087     bcf     STATUS, RP0 ;bank 0
+002F   0186           00088     clrf    PORTB
+0030   1103           00089     bcf     STATUS, Z
+MPASM 5.62  /USERS/DOLENLE/MPLABXPROJECTS/BF   9-4-2015  15:03:16         PAGE  3
 
 
 LOC  OBJECT CODE     LINE SOURCE TEXT
   VALUE
 
-0038   2???           00091     call    wait
-0039   2???           00092     goto    splash
-                      00093     
-003A                  00094 start_cont:
-003A   1710           00095     bsf     bfcmode ;editor mode
-003B   0191           00096     clrf    INST
-003C   0189           00097     clrf    EEADR
-003D   30FF           00098     movlw   0xFF
-003E   008D           00099     movwf   DELAY ;delay ~0.5 second for splash screen
-003F   2???           00100     call    wait
-0040   30FF           00101     movlw   0xFF
-0041   008D           00102     movwf   DELAY
-0042   2???           00103     call    wait
-0043   2???           00104     call    resetLCD ;clear lcd
-                      00105 
-0044                  00106 disp:
-0044   1003           00107     bcf     STATUS, C
-0045   0C11           00108     rrf     INST, W
-0046   0089           00109     movwf   EEADR
-0047   1683           00110     bsf     STATUS, RP0 ;bank 1
+                      00090 
+0031   3032           00091     movlw   .50
+0032   008D           00092     movwf   DELAY
+0033   2???           00093     call    wait   ;delay 50ms
+0034   2???           00094     call    resetLCD
+0035   2???           00095     call    wait50
+0036   0190           00096     clrf    INST
+                      00097 
+0037                  00098 splash:
+0037   0810           00099     movfw   INST    ;temporarily use INST as index
+0038   2???           00100     call    msg     ;get next char (retwl)
+0039   3800           00101     iorlw   0       ;branch if end of string
+003A   1903           00102     btfsc   STATUS, Z
+003B   2???           00103     goto    start_cont
+003C   008E           00104     movwf   BUFF
+003D   2???           00105     call    lcd_write
+003E   0A90           00106     incf    INST, F
+003F   301F           00107     movlw   0x1F
+0040   008D           00108     movwf   DELAY       ;create scroll effect
+0041   2???           00109     call    wait
+0042   2???           00110     goto    splash
+                      00111     
+0043                  00112 start_cont:
+0043   170F           00113     bsf     bfcmode ;editor mode
+0044   0190           00114     clrf    INST
+0045   0189           00115     clrf    EEADR
+0046   30FF           00116     movlw   0xFF
+0047   008D           00117     movwf   DELAY ;delay ~0.5 second for splash screen
+0048   2???           00118     call    wait
+0049   30FF           00119     movlw   0xFF
+004A   008D           00120     movwf   DELAY
+004B   2???           00121     call    wait
+004C   2???           00122     call    resetLCD ;clear lcd
+                      00123 
+004D                  00124 disp:
+004D   1003           00125     bcf     STATUS, C
+004E   0C10           00126     rrf     INST, W
+004F   0089           00127     movwf   EEADR
+0050   1683           00128     bsf     STATUS, RP0 ;bank 1
 Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
-0048   1408           00111     bsf     EECON1, RD  ;read EEPROM, EEDATA contains byte
-0049   1283           00112     bcf     STATUS, RP0
-004A   0808           00113     movfw   EEDATA
-004B   1C11           00114     btfss   INST, 0
-004C   0E08           00115     swapf   EEDATA, W
-004D   3907           00116     andlw   0x07
-004E   008E           00117     movwf   BUFF
-                      00118 
-                      00119     ;Write BUFF to LCD:
-004F   080E           00120     movfw   BUFF
-0050   190E           00121     btfsc   BUFF, 2 ;check 3rd bit for instruction type
-0051   2???           00122     goto    xptrops
-0052   3E03           00123     addlw   0x03 ;convert to ascii
-0053   3828           00124     iorlw   0x28
-0054   008E           00125     movwf   BUFF
-0055   2???           00126     goto    xisr_editor_cont ;skip ptrops
-                      00127 
-0056                  00128 xptrops:     ;handles pointer control commands (< > and [ ])
-0056   383C           00129     iorlw   0x3C ;< >
-0057   180E           00130     btfsc   BUFF, 0 ;check 0th bit
-0058   3A60           00131     xorlw   0x60 ;_ ]
-0059   008E           00132     movwf   BUFF
-005A   3C5F           00133     sublw   0x5F ;correct _ into [
-005B   1903           00134     btfsc   STATUS, Z
-005C   110E           00135     bcf     BUFF, 2
-                      00136 
-005D                  00137 xisr_editor_cont:
-005D   2???           00138     call    lcd_write
-005E   0A91           00139     incf    INST, F
-005F   0811           00140     movfw   INST
-0060   3C0F           00141     sublw   0x0F
-0061   1D03           00142     btfss   STATUS, Z
-MPASM 5.62  /USERS/DOLENLE/MPLABXPROJECTS/BF   8-5-2015  21:15:17         PAGE  4
+0051   1408           00129     bsf     EECON1, RD  ;read EEPROM, EEDATA contains byte
+0052   1283           00130     bcf     STATUS, RP0
+0053   1C10           00131     btfss   INST, 0 ;check if even and swap
+0054   0E88           00132     swapf   EEDATA, F
+0055   0808           00133     movfw   EEDATA ;check for EOF
+0056   390F           00134     andlw   0x0F
+0057   3C0F           00135     sublw   0x0F
+0058   1903           00136     btfsc   STATUS, Z
+0059   2???           00137     goto    edit_start
+005A   0808           00138     movfw   EEDATA
+005B   3907           00139     andlw   0x07
+005C   008E           00140     movwf   BUFF
+005D   2???           00141     call    lcd_print_cmd
+MPASM 5.62  /USERS/DOLENLE/MPLABXPROJECTS/BF   9-4-2015  15:03:16         PAGE  4
 
 
 LOC  OBJECT CODE     LINE SOURCE TEXT
   VALUE
 
-0062   2???           00143     goto    disp
+005E   0A90           00142     incf    INST, F
+005F   2???           00143     goto    disp
                       00144     
-0063   30FF           00145     movlw   0xFF
-0064   008D           00146     movwf   DELAY ;delay ~0.5 second for splash screen
-0065   2???           00147     call    wait
-0066   30FF           00148     movlw   0xFF
-0067   008D           00149     movwf   DELAY
-0068   2???           00150     call    wait
-0069   2???           00151     call    resetLCD ;clear lcd
-006A   0191           00152     clrf    INST
-006B   0189           00153     clrf    EEADR   ;EEPROM
-006C   160B           00154     bsf     INTCON, INTE    ;enable ext. interrupt on RB0
-006D   178B           00155     bsf     INTCON, GIE     ;global interrupt enable
-                      00156 
-006E                  00157 idle:
-006E   0000           00158     nop
-006F   2???           00159     goto idle
-                      00160 
-0070                  00161 run_loop:
-0070   1310           00162     bcf     bfcmode ;run mode
-0071   0191           00163     clrf    INST ;clear instruction pointer
-0072   018F           00164     clrf    STA
-0073   0189           00165     clrf    EEADR
-                      00166 
-0074   2???           00167     goto    idle
-                      00168 
-0075                  00169 isr_editor:     ;write command (in W) to eeprom and LCD (as ASCII)
-0075   008E           00170     movwf   BUFF  ;store input temporarily
-0076   1003           00171     bcf     STATUS, C
-0077   0C11           00172     rrf     INST, W
-0078   0089           00173     movwf   EEADR
-0079   1683           00174     bsf     STATUS, RP0 ;bank 1
+0060                  00145 edit_start:
+0060   30FF           00146     movlw   0xFF
+0061   008D           00147     movwf   DELAY ;delay ~0.5 second
+0062   2???           00148     call    wait
+0063   30FF           00149     movlw   0xFF
+0064   008D           00150     movwf   DELAY
+0065   2???           00151     call    wait
+0066   2???           00152     call    resetLCD ;clear lcd
+0067   0190           00153     clrf    INST
+0068   0189           00154     clrf    EEADR   ;EEPROM
+0069   160B           00155     bsf     INTCON, INTE    ;enable ext. interrupt on RB0
+006A   178B           00156     bsf     INTCON, GIE     ;global interrupt enable
+                      00157 
+006B                  00158 idle:
+006B   1F0F           00159     btfss   bfcmode ;check mode
+006C   2???           00160     goto    run
+006D   2???           00161     goto    idle
+                      00162 
+006E                  00163 run:
+006E   130F           00164     bcf     bfcmode ;run mode
+006F   128F           00165     bcf     loopskip    ;clear loop skip flag
+0070   0190           00166     clrf    INST ;clear instruction pointer
+0071   018F           00167     clrf    STA ;clear stack
+0072   3019           00168     movlw   cellstart
+0073   0084           00169     movwf   FSR ;move cell pointer to start
+0074   0189           00170     clrf    EEADR
+                      00171    
+0075                  00172 run_loop:
+                      00173     ;Begin running BF code
+0075   1003           00174     bcf     STATUS, C
+0076   0C10           00175     rrf     INST, W
+0077   0089           00176     movwf   EEADR
+0078   1683           00177     bsf     STATUS, RP0 ;bank 1
 Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
-007A   1408           00175     bsf     EECON1, RD  ;read EEPROM, EEDATA contains byte
-007B   1283           00176     bcf     STATUS, RP0
-                      00177 
-007C   1811           00178     btfsc   INST, 0 ;continue if even instruction, else write_odd
-007D   2???           00179     goto    write_odd
-007E   0E0E           00180     swapf   BUFF, W
-007F   0608           00181     xorwf   EEDATA, W
-0080   39F0           00182     andlw   0xF0    ;keep lower nibble
-0081   0688           00183     xorwf   EEDATA, F
-0082   2???           00184     goto    isr_editor_cont1
-                      00185 
-0083                  00186 write_odd:
-0083   080E           00187     movfw   BUFF
-0084   0608           00188     xorwf   EEDATA, W
-0085   390F           00189     andlw   0x0F    ;keep upper nibble
-0086   0688           00190     xorwf   EEDATA, F
-                      00191 
-0087                  00192 isr_editor_cont1:
-0087   1683           00193     bsf     STATUS, RP0 ;bank 1
-Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
-MPASM 5.62  /USERS/DOLENLE/MPLABXPROJECTS/BF   8-5-2015  21:15:17         PAGE  5
+0079   1408           00178     bsf     EECON1, RD  ;read EEPROM, EEDATA contains byte
+007A   1283           00179     bcf     STATUS, RP0 ;bank 0
+007B   0808           00180     movfw   EEDATA
+007C   1C10           00181     btfss   INST, 0 ;If even instruction, swap nibbles
+007D   0E08           00182     swapf   EEDATA, W
+007E   390F           00183     andlw   0x0F
+007F   1A8F           00184     btfsc   loopskip
+0080   2???           00185     goto    run_loop_skip
+0081   2???           00186     call    bf_decode
+0082   0A90           00187     incf    INST, F
+0083   1B0F           00188     btfsc   bfcmode ;check mode
+0084   2???           00189     goto    idle        ;stop running
+0085   2???           00190     goto    run_loop ;continue
+                      00191     
+0086                  00192 run_loop_skip:
+0086   3C05           00193     sublw   0x05 ;check for ]
+MPASM 5.62  /USERS/DOLENLE/MPLABXPROJECTS/BF   9-4-2015  15:03:16         PAGE  5
 
 
 LOC  OBJECT CODE     LINE SOURCE TEXT
   VALUE
 
-0088   1508           00194     bsf     EECON1, WREN ;enable eeprom write
-0089   3055           00195     movlw   0x55
+0087   1903           00194     btfsc   STATUS, Z
+0088   128F           00195     bcf     loopskip ;break out of skip loop
+0089   0A90           00196     incf    INST, F
+008A   2???           00197     goto    run_loop    ;continue
+                      00198 
+008B                  00199 isr_editor:     ;write command (in W) to eeprom and LCD (as ASCII)
+008B   008E           00200     movwf   BUFF  ;store input temporarily
+008C   1003           00201     bcf     STATUS, C
+008D   0C10           00202     rrf     INST, W
+008E   0089           00203     movwf   EEADR
+008F   1683           00204     bsf     STATUS, RP0 ;bank 1
 Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
-008A   0089           00196     movwf   EECON2
-008B   30AA           00197     movlw   0xAA
+0090   1408           00205     bsf     EECON1, RD  ;read EEPROM, EEDATA contains byte
+0091   1283           00206     bcf     STATUS, RP0
+                      00207 
+0092   1810           00208     btfsc   INST, 0 ;continue if even instruction, else write_odd
+0093   2???           00209     goto    write_odd
+0094   0E0E           00210     swapf   BUFF, W
+0095   0608           00211     xorwf   EEDATA, W
+0096   39F0           00212     andlw   0xF0    ;keep upper nibble
+0097   0688           00213     xorwf   EEDATA, F
+0098   2???           00214     goto    isr_editor_cont1
+                      00215 
+0099                  00216 write_odd:
+0099   080E           00217     movfw   BUFF
+009A   0608           00218     xorwf   EEDATA, W
+009B   390F           00219     andlw   0x0F    ;keep lower nibble
+009C   0688           00220     xorwf   EEDATA, F
+                      00221 
+009D                  00222 isr_editor_cont1:
+009D   1683           00223     bsf     STATUS, RP0 ;bank 1
 Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
-008C   0089           00198     movwf   EECON2 ;initialization procedure
+009E   1508           00224     bsf     EECON1, WREN ;enable eeprom write
+009F   138B           00225     bcf     INTCON, GIE ;disable interrupts
+00A0   3055           00226     movlw   0x55
 Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
-008D   1488           00199     bsf     EECON1, WR
-008E   1283           00200     bcf     STATUS, RP0
-                      00201 
-008F   1683           00202     bsf     STATUS, RP0 ;bank 1
+00A1   0089           00227     movwf   EECON2
+00A2   30AA           00228     movlw   0xAA
 Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
-0090   1408           00203     bsf     EECON1, RD  ;read EEPROM, EEDATA contains byte
-0091   1283           00204     bcf     STATUS, RP0
-0092   0808           00205     movfw   EEDATA
-0093   1C11           00206     btfss   INST, 0
-0094   0E08           00207     swapf   EEDATA, W
-0095   3907           00208     andlw   0x07
-0096   008E           00209     movwf   BUFF
-                      00210     
-                      00211     
-                      00212     ;Write BUFF to LCD:
-0097   080E           00213     movfw   BUFF
-0098   190E           00214     btfsc   BUFF, 2 ;check 3rd bit
-0099   2???           00215     goto    ptrops
-009A   3E03           00216     addlw   0x03 ;convert to ascii
-009B   3828           00217     iorlw   0x28
-009C   008E           00218     movwf   BUFF
-009D   2???           00219     goto    isr_editor_cont2 ;skip ptrops
-                      00220 
-009E                  00221 ptrops:     ;pointer control commands (< > and [ ])
-009E   383C           00222     iorlw   0x3C ;< >
-009F   180E           00223     btfsc   BUFF, 0 ;check 0th bit
-00A0   3A60           00224     xorlw   0x60 ;_ ]
-00A1   008E           00225     movwf   BUFF
-00A2   3C5F           00226     sublw   0x5F ;correct _ into [
-00A3   1903           00227     btfsc   STATUS, Z
-00A4   110E           00228     bcf     BUFF, 2
-                      00229 
-00A5                  00230 isr_editor_cont2:
-00A5   2???           00231     call    lcd_write
-00A6   0A91           00232     incf    INST, F
-00A7   0811           00233     movfw   INST
-00A8   3C10           00234     sublw   0x10
-00A9   391F           00235     andlw   0x1F
-00AA   1903           00236     btfsc   STATUS, Z  ;if line full (16 chars), move lcd cursor
-00AB   2???           00237     call    lcd_line2
-00AC   0811           00238     movfw   INST    ;repeat for 32
-00AD   3C20           00239     sublw   0x20
-00AE   391F           00240     andlw   0x1F
-00AF   1D03           00241     btfss   STATUS, Z  ;if screen full (32 chars), clear lcd
-00B0   0009           00242     retfie
-MPASM 5.62  /USERS/DOLENLE/MPLABXPROJECTS/BF   8-5-2015  21:15:17         PAGE  6
+00A3   0089           00229     movwf   EECON2 ;EEPROM write initialization procedure
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+00A4   1488           00230     bsf     EECON1, WR  ;do the write
+00A5   178B           00231     bsf     INTCON, GIE ;enable interrupts
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+00A6   1408           00232     bsf     EECON1, RD  ;back to read mode
+00A7   1283           00233     bcf     STATUS, RP0
+00A8   0808           00234     movfw   EEDATA
+00A9   1C10           00235     btfss   INST, 0
+00AA   0E08           00236     swapf   EEDATA, W
+00AB   3907           00237     andlw   0x07
+00AC   008E           00238     movwf   BUFF
+00AD   2???           00239     call    lcd_print_cmd
+00AE   0A90           00240     incf    INST, F
+MPASM 5.62  /USERS/DOLENLE/MPLABXPROJECTS/BF   9-4-2015  15:03:16         PAGE  6
 
 
 LOC  OBJECT CODE     LINE SOURCE TEXT
   VALUE
 
-00B1   2???           00243     call    resetLCD   ;clear the screen
-00B2   0009           00244     retfie
-                      00245 
-00B3                  00246 isr_input:      ;write byte to cell
-00B3   0009           00247     retfie
-                      00248 
-00B4                  00249 lcd_write:      ;write BUFF to the LCD via shift register
-00B4   2???           00250     call    shift4
-00B5   1506           00251     bsf     srdata  ;E=1
-00B6   2???           00252     call    shift2
-00B7   2???           00253     call    right4 ;reset BUFF
-                      00254 
-00B8   2???           00255     call    shift4
-00B9   1106           00256     bcf     srdata  ;E=0, falling edge reads in data
-00BA   2???           00257     call    shift2
-00BB   3002           00258     movlw   .2
-00BC   008D           00259     movwf   DELAY
-00BD   2???           00260     call    wait   ;delay
-                      00261 
-                      00262     ;repeat for 2nd nibble
-00BE   2???           00263     call    shift4
-00BF   1506           00264     bsf     srdata  ;E=1
-00C0   2???           00265     call    shift2
-00C1   2???           00266     call    right4 ;reset BUFF
-                      00267 
-00C2   2???           00268     call    shift4
-00C3   1106           00269     bcf     srdata  ;E=0, falling edge reads in data
-00C4   2???           00270     call    shift2
-00C5   3002           00271     movlw   .2
-00C6   008D           00272     movwf   DELAY
-00C7   2???           00273     call    wait   ;delay
-00C8   2???           00274     call    right4
-00C9   2???           00275     call    right4 ;BUFF back to orig. position
-                      00276     
-00CA   0008           00277     return
+00AF   0810           00241     movfw   INST
+00B0   3C10           00242     sublw   0x10
+00B1   391F           00243     andlw   0x1F
+00B2   1903           00244     btfsc   STATUS, Z  ;if line full (16 chars), move lcd cursor
+00B3   2???           00245     call    lcd_line2
+00B4   0810           00246     movfw   INST    ;repeat for 32
+00B5   3C20           00247     sublw   0x20
+00B6   391F           00248     andlw   0x1F
+00B7   1D03           00249     btfss   STATUS, Z  ;if screen full (32 chars), clear lcd
+00B8   0009           00250     retfie
+00B9   2???           00251     call    resetLCD   ;clear the screen
+00BA   0009           00252     retfie
+                      00253 
+00BB                  00254 isr_input:      ;run-mode input ISR
+00BB   0009           00255     retfie
+                      00256     
+00BC                  00257 lcd_print_cmd: ;convert BF command in BUFF to ASCII and write to LCD
+00BC   080E           00258     movfw   BUFF
+00BD   190E           00259     btfsc   BUFF, 2 ;check 3rd bit
+00BE   2???           00260     goto    lcd_print_ptr
+00BF   3E03           00261     addlw   0x03 ;convert to ascii
+00C0   3828           00262     iorlw   0x28
+00C1   008E           00263     movwf   BUFF
+00C2   2???           00264     goto    lcd_print_cmd2 ; not a pointer cmd
+                      00265 
+00C3                  00266 lcd_print_ptr:     ;pointer control commands (< > and [ ])
+00C3   383C           00267     iorlw   0x3C ;< >
+00C4   180E           00268     btfsc   BUFF, 0 ;check 0th bit
+00C5   3A60           00269     xorlw   0x60 ;_ ]
+00C6   008E           00270     movwf   BUFF
+00C7   3C5F           00271     sublw   0x5F ;correct _ into [
+00C8   1903           00272     btfsc   STATUS, Z
+00C9   110E           00273     bcf     BUFF, 2
+                      00274 
+00CA                  00275 lcd_print_cmd2:
+00CA   2???           00276     call    lcd_write
+00CB   0008           00277     return
                       00278 
-00CB                  00279 shift4:     ;shift 4 bits of BUFF w/o latching
-00CB   3004           00280     movlw   0x04
-00CC   008C           00281     movwf   COUNT
-00CD                  00282 l4_loop:
-00CD   0D8E           00283     rlf     BUFF, F ;rotate left thru carry
-00CE   1106           00284     bcf     srdata
-00CF   1803           00285     btfsc   STATUS, C ;write carry bit to sr data
-00D0   1506           00286     bsf     srdata
-00D1   1586           00287     bsf     srclock ;pulse clock
-00D2   1186           00288     bcf     srclock
-00D3   0B8C           00289     decfsz  COUNT, F
-00D4   2???           00290     goto    l4_loop ;repeat
-00D5   0008           00291     return
-                      00292 
-00D6                  00293 right4:     ;rotate BUFF 4 bits right to original position
-00D6   3004           00294     movlw   0x04
-00D7   008C           00295     movwf   COUNT
-MPASM 5.62  /USERS/DOLENLE/MPLABXPROJECTS/BF   8-5-2015  21:15:17         PAGE  7
+00CC                  00279 lcd_write:      ;write BUFF to the LCD via shift register
+00CC   2???           00280     call    shift4
+00CD   1506           00281     bsf     srdata  ;E=1
+00CE   2???           00282     call    shift2
+00CF   2???           00283     call    right4 ;reset BUFF
+                      00284 
+00D0   2???           00285     call    shift4
+00D1   1106           00286     bcf     srdata  ;E=0, falling edge reads in data
+00D2   2???           00287     call    shift2
+00D3   3002           00288     movlw   .2
+00D4   008D           00289     movwf   DELAY
+00D5   2???           00290     call    wait   ;delay
+                      00291 
+                      00292     ;repeat for 2nd nibble
+00D6   2???           00293     call    shift4
+MPASM 5.62  /USERS/DOLENLE/MPLABXPROJECTS/BF   9-4-2015  15:03:16         PAGE  7
 
 
 LOC  OBJECT CODE     LINE SOURCE TEXT
   VALUE
 
-00D8                  00296 r4_loop:
-00D8   0C8E           00297     rrf     BUFF, F
-00D9   0B8C           00298     decfsz   COUNT, F
-00DA   2???           00299     goto    r4_loop
-00DB   0008           00300     return
-                      00301 
-00DC                  00302 shift2:     ;shift out the last 2 bits (Enable then RS), then latch
-00DC   1586           00303     bsf     srclock ;shift out
-00DD   1186           00304     bcf     srclock
-00DE   1106           00305     bcf     srdata  ;register zero (cmd)
-00DF   1B90           00306     btfsc   lcdmode ;flag for RS
-00E0   1506           00307     bsf     srdata
-00E1   1586           00308     bsf     srclock ;shift out
-00E2   1186           00309     bcf     srclock
-00E3   1486           00310     bsf     srlatch ;latch out data
-00E4   1086           00311     bcf     srlatch
-00E5   0008           00312     return
-                      00313 
-00E6                  00314 resetLCD:    ;initialize LCD - E, RS and D4-D7 to lower 6 bits of 4094
-00E6   1390           00315     bcf     lcdmode      ;LCD command mode
-00E7   3033           00316     movlw   b'00110011' ;initialize lcd (try 2 times)
-00E8   008E           00317     movwf   BUFF
-00E9   2???           00318     call    lcd_write
-00EA   3030           00319     movlw   b'00110000' ;one last try
-00EB   008E           00320     movwf   BUFF
-00EC   2???           00321     call    lcd_write
-00ED   3002           00322     movlw   b'00000010' ;command for 4-bit mode (swapped)
-00EE   008E           00323     movwf   BUFF
-00EF   2???           00324     call    lcd_write
-00F0   3028           00325     movlw   b'00101000'   ;Function set, config display
-00F1   008E           00326     movwf   BUFF
-00F2   2???           00327     call    lcd_write
-00F3   300F           00328     movlw   b'00001111'   ;lcd on w/ blinking cursor
-00F4   008E           00329     movwf   BUFF
-00F5   2???           00330     call    lcd_write
-00F6   3001           00331     movlw   b'00000001'   ;clear disp
-00F7   008E           00332     movwf   BUFF
-00F8   2???           00333     call    lcd_write
-00F9   3006           00334     movlw   b'00000110'   ;enter data, auto increment addr.
-00FA   008E           00335     movwf   BUFF
-00FB   2???           00336     call    lcd_write
-00FC   1790           00337     bsf     lcdmode ;back to lcd data mode
-00FD   0008           00338     return
-                      00339 
-00FE                  00340 lcd_line2: ;move lcd cursor to the 2nd line
-00FE   1390           00341     bcf     lcdmode  ;lcd command
-00FF   30A8           00342     movlw   0xA8
-0100   008E           00343     movwf   BUFF
-0101   2???           00344     call    lcd_write
-0102   1790           00345     bsf     lcdmode ;back to data mode
-0103   0008           00346     return
-                      00347 
-                      00348 ;inc_ptr ;increment data pointer (<)
-MPASM 5.62  /USERS/DOLENLE/MPLABXPROJECTS/BF   8-5-2015  21:15:17         PAGE  8
+00D7   1506           00294     bsf     srdata  ;E=1
+00D8   2???           00295     call    shift2
+00D9   2???           00296     call    right4 ;reset BUFF
+                      00297 
+00DA   2???           00298     call    shift4
+00DB   1106           00299     bcf     srdata  ;E=0, falling edge reads in data
+00DC   2???           00300     call    shift2
+00DD   3002           00301     movlw   .2
+00DE   008D           00302     movwf   DELAY
+00DF   2???           00303     call    wait   ;delay
+00E0   2???           00304     call    right4
+00E1   2???           00305     call    right4 ;BUFF back to orig. position
+                      00306     
+00E2   0008           00307     return
+                      00308 
+00E3                  00309 shift4:     ;shift 4 bits of BUFF w/o latching
+00E3   3004           00310     movlw   0x04
+00E4   008C           00311     movwf   COUNT
+00E5                  00312 l4_loop:
+00E5   0D8E           00313     rlf     BUFF, F ;rotate left thru carry
+00E6   1106           00314     bcf     srdata
+00E7   1803           00315     btfsc   STATUS, C ;write carry bit to sr data
+00E8   1506           00316     bsf     srdata
+00E9   1586           00317     bsf     srclock ;pulse clock
+00EA   1186           00318     bcf     srclock
+00EB   0B8C           00319     decfsz  COUNT, F
+00EC   2???           00320     goto    l4_loop ;repeat
+00ED   0008           00321     return
+                      00322 
+00EE                  00323 right4:     ;rotate BUFF 4 bits right to original position
+00EE   3004           00324     movlw   0x04
+00EF   008C           00325     movwf   COUNT
+00F0                  00326 r4_loop:
+00F0   0C8E           00327     rrf     BUFF, F
+00F1   0B8C           00328     decfsz   COUNT, F
+00F2   2???           00329     goto    r4_loop
+00F3   0008           00330     return
+                      00331 
+00F4                  00332 shift2:     ;shift out the last 2 bits (Enable then RS), then latch
+00F4   1586           00333     bsf     srclock ;shift out
+00F5   1186           00334     bcf     srclock
+00F6   1106           00335     bcf     srdata  ;register zero (cmd)
+00F7   1B8F           00336     btfsc   lcdmode ;flag for RS
+00F8   1506           00337     bsf     srdata
+00F9   1586           00338     bsf     srclock ;shift out
+00FA   1186           00339     bcf     srclock
+00FB   1486           00340     bsf     srlatch ;latch out data
+00FC   1086           00341     bcf     srlatch
+00FD   0008           00342     return
+                      00343 
+00FE                  00344 resetLCD:    ;initialize LCD - E, RS and D4-D7 to lower 6 bits of 4094
+00FE   138F           00345     bcf     lcdmode      ;LCD command mode
+00FF   3033           00346     movlw   b'00110011' ;initialize lcd (try 2 times)
+MPASM 5.62  /USERS/DOLENLE/MPLABXPROJECTS/BF   9-4-2015  15:03:16         PAGE  8
 
 
 LOC  OBJECT CODE     LINE SOURCE TEXT
   VALUE
 
-                      00349 ;    return
-                      00350 ;
-                      00351 ;dec_ptr ;decrement data pointer (>)
-                      00352 ;    return
-                      00353 ;
-                      00354 ;inc_cell ;increment byte (+)
-                      00355 ;    return
-                      00356 ;
-                      00357 ;dec_cell ;decement byte (-)
-                      00358 ;    return
-                      00359 ;
-                      00360 ;out_cell ;display byte on LCD  (.)
-                      00361 ;    return
-                      00362 ;
-                      00363 ;in_cell ;load input into byte (,)
-                      00364 ;    return
-                      00365 
-0104                  00366 wait:    ;wait approx. DELAY millisecs
-0104   30C8           00367     movlw   .200     ;run 200 times
-0105                  00368 waitloop:
-0105   008C           00369     movwf   COUNT   ;1 microsecond per cycle w/ 4MHz xtal
-                      00370 
-0106   2???           00371     goto    $+1     ;2 cycles
-0107   0B8C           00372     decfsz  COUNT, F   ;1 cycle
-0108   2???           00373     goto    $-2     ;2 cycles
-                      00374 
-0109   0B8D           00375     decfsz  DELAY, F
-010A   2???           00376     goto    waitloop
-010B   0008           00377     return
-                      00378 
-010C                  00379 wait50:     ;wait approx. 50 microseconds (4MHz)
-010C   3009           00380     movlw   .9     ;run 9 times
-010D   008C           00381     movwf   COUNT   ;1 microsecond per cycle w/ 4MHz xtal
-                      00382 
-010E   2???           00383     goto    $+1     ;2 cycles
-010F   0B8C           00384     decfsz  COUNT, F   ;1 cycle
-0110   2???           00385     goto    $-2     ;2 cycles
-0111   0000           00386     nop
-0112   0008           00387     return
-                      00388 
-0113                  00389 addinst:    ;write new instruction
-0113   0008           00390     return
-                      00391     
-3FF2                  00392     END
-MPASM 5.62  /USERS/DOLENLE/MPLABXPROJECTS/BF   8-5-2015  21:15:17         PAGE  9
+0100   008E           00347     movwf   BUFF
+0101   2???           00348     call    lcd_write
+0102   3030           00349     movlw   b'00110000' ;one last try
+0103   008E           00350     movwf   BUFF
+0104   2???           00351     call    lcd_write
+0105   3002           00352     movlw   b'00000010' ;command for 4-bit mode (swapped)
+0106   008E           00353     movwf   BUFF
+0107   2???           00354     call    lcd_write
+0108   3028           00355     movlw   b'00101000'   ;Function set, config display
+0109   008E           00356     movwf   BUFF
+010A   2???           00357     call    lcd_write
+010B   300F           00358     movlw   b'00001111'   ;lcd on w/ blinking cursor
+010C   008E           00359     movwf   BUFF
+010D   2???           00360     call    lcd_write
+010E   3001           00361     movlw   b'00000001'   ;clear disp
+010F   008E           00362     movwf   BUFF
+0110   2???           00363     call    lcd_write
+0111   3006           00364     movlw   b'00000110'   ;enter data, auto increment addr.
+0112   008E           00365     movwf   BUFF
+0113   2???           00366     call    lcd_write
+0114   178F           00367     bsf     lcdmode     ;back to lcd data mode
+0115   0008           00368     return
+                      00369 
+0116                  00370 lcd_line2: ;move lcd cursor to the 2nd line
+0116   138F           00371     bcf     lcdmode  ;lcd command
+0117   30A8           00372     movlw   0xA8
+0118   008E           00373     movwf   BUFF
+0119   2???           00374     call    lcd_write
+011A   178F           00375     bsf     lcdmode ;back to data mode
+011B   0008           00376     return
+                      00377 
+                      00378 ;Brainfuck command routines
+011C                  00379 inc_ptr:    ;increment data pointer (<)
+011C   0A84           00380     incf    FSR, F
+011D   3050           00381     movlw   cellend+1   ;check overflow
+011E   0204           00382     subwf   FSR, W
+011F   3019           00383     movlw   cellstart   ;loop back
+0120   1803           00384     btfsc   STATUS, C
+0121   0084           00385     movwf   FSR
+0122   0008           00386     return
+                      00387 
+0123                  00388 dec_ptr:    ;decrement data pointer (>)
+0123   0384           00389     decf    FSR, F
+0124   3019           00390     movlw   cellstart   ;check overflow
+0125   0204           00391     subwf   FSR, W
+0126   304F           00392     movlw   cellend ;loop back
+0127   1C03           00393     btfss   STATUS, C
+0128   0084           00394     movwf   FSR
+0129   0008           00395     return
+                      00396 
+012A                  00397 inc_cell:   ;increment byte (+)
+012A   0A80           00398     incf    INDF, F
+012B   0008           00399     return
+MPASM 5.62  /USERS/DOLENLE/MPLABXPROJECTS/BF   9-4-2015  15:03:16         PAGE  9
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+                      00400 
+012C                  00401 dec_cell:   ;decrement byte (-)
+012C   0380           00402     decf    INDF, F
+012D   0008           00403     return
+                      00404     
+012E                  00405 loop_start: ;run to closing bracket while byte is nonzero ([)
+012E   0800           00406     movfw   INDF ;check if cell zero
+012F   1903           00407     btfsc   STATUS, Z
+0130   2???           00408     goto    loop_skip
+0131   0804           00409     movfw   FSR
+0132   008E           00410     movwf   BUFF    ;backup cell ptr
+0133   080F           00411     movfw   STA     
+0134   3907           00412     andlw   0x07    ;get stack ptr
+0135   3E11           00413     addlw   stackoffset ;add constant
+0136   0084           00414     movwf   FSR
+0137   0810           00415     movfw   INST
+0138   0080           00416     movwf   INDF    ;push INST onto stack
+0139   0A8F           00417     incf    STA, F  ;increment stack ptr
+013A   118F           00418     bcf     STA, 3  ;mask 3rd bit
+013B   0008           00419     return
+                      00420 
+013C                  00421 loop_skip:  ;skip to closing bracket
+013C   168F           00422     bsf     loopskip ;set flag - instructions will be skipped in run_loop
+013D   0008           00423     return
+                      00424     
+013E                  00425 loop_end:    ;jump back to loop start (from stack)
+                      00426 
+013E                  00427 out_cell:   ;display byte on LCD  (.)
+013E   0800           00428     movfw   INDF
+013F   008E           00429     movwf   BUFF
+0140   2???           00430     call    lcd_write
+0141   0008           00431     return
+                      00432 
+                      00433 ;in_cell: ;load input into byte (,)
+                      00434 ;    return
+                      00435 
+0142                  00436 wait:    ;wait approx. DELAY millisecs
+0142   30C8           00437     movlw   .200     ;run 200 times
+0143                  00438 waitloop:
+0143   008C           00439     movwf   COUNT   ;1 microsecond per cycle w/ 4MHz xtal
+                      00440 
+0144   2???           00441     goto    $+1     ;2 cycles
+0145   0B8C           00442     decfsz  COUNT, F   ;1 cycle
+0146   2???           00443     goto    $-2     ;2 cycles
+                      00444 
+0147   0B8D           00445     decfsz  DELAY, F
+0148   2???           00446     goto    waitloop
+0149   0008           00447     return
+                      00448 
+014A                  00449 wait50:     ;wait approx. 50 microseconds (4MHz)
+014A   3009           00450     movlw   .9     ;run 9 times
+014B   008C           00451     movwf   COUNT   ;1 microsecond per cycle w/ 4MHz xtal
+                      00452 
+MPASM 5.62  /USERS/DOLENLE/MPLABXPROJECTS/BF   9-4-2015  15:03:16         PAGE 10
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+014C   2???           00453     goto    $+1     ;2 cycles
+014D   0B8C           00454     decfsz  COUNT, F   ;1 cycle
+014E   2???           00455     goto    $-2     ;2 cycles
+014F   0000           00456     nop
+0150   0008           00457     return
+                      00458 
+0151                  00459 addinst:    ;write new instruction
+0151   0008           00460     return
+                      00461     
+3FF2                  00462     END
+MPASM 5.62  /USERS/DOLENLE/MPLABXPROJECTS/BF   9-4-2015  15:03:16         PAGE 11
 
 
 SYMBOL TABLE
@@ -469,7 +553,6 @@ SYMBOL TABLE
 
 BUFF                              0000000E
 C                                 00000000
-CELL                              00000010
 COUNT                             0000000C
 DC                                00000001
 DELAY                             0000000D
@@ -483,7 +566,7 @@ F                                 00000001
 FSR                               00000004
 GIE                               00000007
 INDF                              00000000
-INST                              00000011
+INST                              00000010
 INTCON                            0000000B
 INTE                              00000004
 INTEDG                            00000006
@@ -520,13 +603,13 @@ RD                                00000000
 RP0                               00000005
 RP1                               00000006
 STA                               0000000F
-MPASM 5.62  /USERS/DOLENLE/MPLABXPROJECTS/BF   8-5-2015  21:15:17         PAGE 10
+STATUS                            00000003
+MPASM 5.62  /USERS/DOLENLE/MPLABXPROJECTS/BF   9-4-2015  15:03:16         PAGE 12
 
 
 SYMBOL TABLE
   LABEL                             VALUE 
 
-STATUS                            00000003
 T0CS                              00000005
 T0IE                              00000005
 T0IF                              00000002
@@ -554,10 +637,10 @@ WR                                00000001
 WREN                              00000002
 WRERR                             00000003
 Z                                 00000002
-_.org_2_0106                      00000106
-_.org_2_0108                      00000108
-_.org_2_010E                      0000010E
-_.org_2_0110                      00000110
+_.org_2_0144                      00000144
+_.org_2_0146                      00000146
+_.org_2_014C                      0000014C
+_.org_2_014E                      0000014E
 _CONFIG                           00002007
 _CP_OFF                           00003FFF
 _CP_ON                            0000000F
@@ -579,49 +662,64 @@ _WDTE_ON                          00003FFF
 _WDT_OFF                          00003FFB
 _WDT_ON                           00003FFF
 _XT_OSC                           00003FFD
-MPASM 5.62  /USERS/DOLENLE/MPLABXPROJECTS/BF   8-5-2015  21:15:17         PAGE 11
+__16F84                           00000001
+MPASM 5.62  /USERS/DOLENLE/MPLABXPROJECTS/BF   9-4-2015  15:03:16         PAGE 13
 
 
 SYMBOL TABLE
   LABEL                             VALUE 
 
-__16F84                           00000001
-addinst                           00000113
-bfcmode                           CELL, 6
-disp                              00000044
-idle                              0000006E
+addinst                           00000151
+bf_decode                         00000020
+bfcmode                           STA, 6
+cellend                           0x4F
+cellstart                         0x19
+dec_cell                          0000012C
+dec_ptr                           00000123
+disp                              0000004D
+edit_start                        00000060
+idle                              0000006B
+inc_cell                          0000012A
+inc_ptr                           0000011C
 isr2                              0000000C
-isr_editor                        00000075
-isr_editor_cont1                  00000087
-isr_editor_cont2                  000000A5
-isr_input                         000000B3
-l4_loop                           000000CD
-lcd_line2                         000000FE
-lcd_write                         000000B4
-lcdmode                           CELL, 7
+isr_editor                        0000008B
+isr_editor_cont1                  0000009D
+isr_input                         000000BB
+l4_loop                           000000E5
+lcd_line2                         00000116
+lcd_print_cmd                     000000BC
+lcd_print_cmd2                    000000CA
+lcd_print_ptr                     000000C3
+lcd_write                         000000CC
+lcdmode                           STA, 7
+loop_end                          0000013E
+loop_skip                         0000013C
+loop_start                        0000012E
+loopskip                          STA, 5
 msg                               00000011
-ptrops                            0000009E
-r4_loop                           000000D8
-resetLCD                          000000E6
-right4                            000000D6
-run_loop                          00000070
-shift2                            000000DC
-shift4                            000000CB
-splash                            0000002E
+out_cell                          0000013E
+r4_loop                           000000F0
+resetLCD                          000000FE
+right4                            000000EE
+run                               0000006E
+run_loop                          00000075
+run_loop_skip                     00000086
+shift2                            000000F4
+shift4                            000000E3
+splash                            00000037
 srclock                           PORTB, 3
 srdata                            PORTB, 2
 srlatch                           PORTB, 1
-start                             00000020
-start_cont                        0000003A
-wait                              00000104
-wait50                            0000010C
-waitloop                          00000105
-write_odd                         00000083
-xisr_editor_cont                  0000005D
-xptrops                           00000056
+stackoffset                       0x11
+start                             00000029
+start_cont                        00000043
+wait                              00000142
+wait50                            0000014A
+waitloop                          00000143
+write_odd                         00000099
 
 Errors   :     0
 Warnings :     0 reported,     0 suppressed
-Messages :     9 reported,     0 suppressed
+Messages :    10 reported,     0 suppressed
 
 
