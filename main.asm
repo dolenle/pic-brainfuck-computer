@@ -40,7 +40,7 @@ INST    EQU 0x10    ;brainfuck "program counter" and input pointer
 ; REGISTERS 0x11 thru 0x18 RESERVED FOR LOOP STACK
 
     ORG 0x2100 ;preload in eeprom
-    de 0xFF
+    de 0x2,0x75,0x46,0x31,0xF0
 
     ORG 0x00
     goto    start
@@ -69,14 +69,14 @@ msg:	    ;splash msg lookup table
     
 bf_decode:  ;BF instruction table
     addwf   PCL, F
-    call    inc_cell	;+
-    ;call   in_cell	;,
-    call    dec_cell	;-
-    call    out_cell	;.
-    call    dec_ptr	;<
-    call    loop_end	;]
-    call    inc_ptr	;>
-    call    loop_start	;[
+    goto    inc_cell	;+
+    return ;call   in_cell	;,
+    goto    dec_cell	;-
+    goto    out_cell	;.
+    goto    dec_ptr	;<
+    goto    loop_end	;]
+    goto    inc_ptr	;>
+    goto    loop_start	;[
 
 start:
     bsf     STATUS, RP0	;Bank 1
@@ -183,9 +183,9 @@ run_loop:
     andlw   0x0F
     btfsc   loopskip
     goto    run_loop_skip
-    goto    bf_decode
+    call    bf_decode
     incf    INST, F
-    btfss   bfcmode ;check mode
+    btfsc   bfcmode ;check mode
     goto    idle	;stop running
     goto    run_loop ;continue
     
