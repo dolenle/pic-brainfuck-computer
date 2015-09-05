@@ -151,7 +151,7 @@ int main(int argc, char *argv[]) {
 			}
 		}
 	}
-	fprintf(stderr, "%d bytes used.\n", byteCount);
+	fprintf(stderr, "%d instructions, %d bytes used.\n", instCount+1, byteCount);
 }
 
 struct binData *newBin(struct binData *prev) {

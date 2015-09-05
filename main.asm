@@ -21,6 +21,7 @@
 #define srdata PORTB, 2 ;Actual pin 8
 #define srclock PORTB, 3 ;Actual pin 9
 #define srlatch PORTB, 1 ;Actual pin 7
+#define	statusled PORTA, 3 ;status LED on pin 2
 
 #define lcdmode STA, 7 ;LCD status bit (command/data)
 #define bfcmode STA, 6 ;mode bit (edit/run)
@@ -40,8 +41,10 @@ INST    EQU 0x10    ;brainfuck "program counter" and input pointer
 ; REGISTERS 0x11 thru 0x18 RESERVED FOR LOOP STACK
 
     ORG 0x2100 ;preload in eeprom
-    de 0x0,0x72,0x60,0x45,0x80
-
+    ;hello world:
+    de 0x0,0x0,0x0,0x0,0x76,0x0,0x0,0x76,0x0,0x60,0x0,0x60,0x0,0x60,0x44,0x44,0x25,0x60,0x60,0x62,0x66,0x7,0x45,0x42,0x56,0x63,0x62,0x22,0x30,0x0,0x0,0x0,0x33,0x0,0x3,0x66,0x34,0x23,0x43,0x0,0x3
+    de 0x22,0x22,0x22,0x32,0x22,0x22,0x22,0x23,0x66,0x3,0x60,0x83;skip the newline
+    
     ORG 0x00
     goto    start
 
@@ -56,11 +59,13 @@ INST    EQU 0x10    ;brainfuck "program counter" and input pointer
     goto    isr_editor  ;edit
     goto    isr_input   ;input
 isr2:    ;PORTB onchange interrupt (run bttn)
-    movlw   0x3C
-    movwf   BUFF
-    call    lcd_write
-    bcf     INTCON, INTF
-    
+    bsf	    statusled
+    movlw   0xFF
+    movwf   DELAY
+    call    wait
+    bcf	    statusled
+    bcf	    INTCON, RBIF
+    bcf	    bfcmode
     retfie ;return
 
 msg:	    ;splash msg lookup table
@@ -83,10 +88,11 @@ start:
     bsf     STATUS, RP0	;Bank 1
     movlw   0xF1	;input on pin RB0 and RB4:7
     movwf   TRISB	;set PORTB tristate
-    movlw   0x0F
-    movwf   TRISA	;set PORTA input
+    movlw   0x07
+    movwf   TRISA	;set PORTA input on lower 3 bits
     bcf     STATUS, RP0	;bank 0
     clrf    PORTB
+    clrf    PORTA
     bcf	    STATUS, Z
 
     movlw   .50
@@ -133,7 +139,7 @@ disp:
     swapf   EEDATA, F
     movfw   EEDATA ;check for EOF
     andlw   0x0F
-    sublw   0x0F
+    sublw   0x08
     btfsc   STATUS, Z
     goto    edit_start
     movfw   EEDATA
@@ -154,6 +160,7 @@ edit_start:
     clrf    INST
     clrf    EEADR   ;EEPROM
     bsf     INTCON, INTE    ;enable ext. interrupt on RB0
+    bsf	    INTCON, RBIE    ;enable port B change interrupt
     bsf     INTCON, GIE	    ;global interrupt enable
 
 idle:
@@ -162,12 +169,20 @@ idle:
     goto    idle
 
 run:
-    bcf     bfcmode ;run mode
     bcf	    loopskip	;clear loop skip flag
+    bcf	    statusled
     clrf    INST ;clear instruction pointer
     movfw   STA	;clear stack
     andlw   0xF0
     movwf   STA
+    movlw   cellstart
+    movwf   FSR	    ;clear RAM
+    clrf    INDF
+    incf    FSR
+    movfw   FSR
+    sublw   cellend+1
+    btfss   STATUS, Z
+    goto    $-5
     movlw   cellstart
     movwf   FSR	;move cell pointer to start
     clrf    EEADR
@@ -444,7 +459,7 @@ loop_end:    ;if cell nonzero, jump back to loop start (TOS)
     return
     
 loop_exit:  ;leaving loop, pop the stack and continue
-    decf    STA
+    decf    STA, F
     bcf	    STA, 3
     return
 
@@ -459,6 +474,7 @@ in_cell: ;load input into byte (,)
     
 bf_end:	    ;reached end of program, return to idle
     bsf	    bfcmode
+    bsf	    statusled	;indicate program done
     return
 
 wait:    ;wait approx. DELAY millisecs
