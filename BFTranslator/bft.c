@@ -9,7 +9,7 @@
 //101 ]
 //110 >
 //111 [
-//0x0F EOF
+//0x08 EOF
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -124,9 +124,9 @@ int main(int argc, char *argv[]) {
 		if(!start)
 			start = current;
 		byteCount++;
-		current->data = 0xF0;
+		current->data = 0x80;
 	} else {
-		current->data = current->data | 0x0F;
+		current->data = current->data | 0x08;
 	}
 	
 	

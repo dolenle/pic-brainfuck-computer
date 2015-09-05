@@ -10,7 +10,7 @@
 ;101 ]
 ;110 >
 ;111 [
-;0x0F EOF
+;0x08 EOF
 
     LIST    P=PIC16F84, R=hex
     INCLUDE "p16F84.inc"   ;include chip-specific constants
@@ -40,7 +40,7 @@ INST    EQU 0x10    ;brainfuck "program counter" and input pointer
 ; REGISTERS 0x11 thru 0x18 RESERVED FOR LOOP STACK
 
     ORG 0x2100 ;preload in eeprom
-    de 0x2,0x75,0x46,0x31,0xF0
+    de 0x0,0x72,0x60,0x45,0x80
 
     ORG 0x00
     goto    start
@@ -70,13 +70,14 @@ msg:	    ;splash msg lookup table
 bf_decode:  ;BF instruction table
     addwf   PCL, F
     goto    inc_cell	;+
-    return ;call   in_cell	;,
+    goto    in_cell	;,
     goto    dec_cell	;-
     goto    out_cell	;.
     goto    dec_ptr	;<
     goto    loop_end	;]
     goto    inc_ptr	;>
     goto    loop_start	;[
+    goto    bf_end
 
 start:
     bsf     STATUS, RP0	;Bank 1
@@ -164,7 +165,9 @@ run:
     bcf     bfcmode ;run mode
     bcf	    loopskip	;clear loop skip flag
     clrf    INST ;clear instruction pointer
-    clrf    STA	;clear stack
+    movfw   STA	;clear stack
+    andlw   0xF0
+    movwf   STA
     movlw   cellstart
     movwf   FSR	;move cell pointer to start
     clrf    EEADR
@@ -376,7 +379,7 @@ lcd_line2: ;move lcd cursor to the 2nd line
     return
 
 ;Brainfuck command routines
-inc_ptr:    ;increment data pointer (<)
+inc_ptr:    ;increment data pointer (>)
     incf    FSR, F
     movlw   cellend+1	;check overflow
     subwf   FSR, W
@@ -385,7 +388,7 @@ inc_ptr:    ;increment data pointer (<)
     movwf   FSR
     return
 
-dec_ptr:    ;decrement data pointer (>)
+dec_ptr:    ;decrement data pointer (<)
     decf    FSR, F
     movlw   cellstart	;check overflow
     subwf   FSR, W
@@ -416,13 +419,34 @@ loop_start: ;run to closing bracket while byte is nonzero ([)
     movwf   INDF    ;push INST onto stack
     incf    STA, F  ;increment stack ptr
     bcf	    STA, 3  ;mask 3rd bit
+    movfw   BUFF
+    movwf   FSR	    ;restore cell ptr
     return
 
 loop_skip:  ;skip to closing bracket
     bsf	    loopskip ;set flag - instructions will be skipped in run_loop
     return
     
-loop_end:    ;jump back to loop start (from stack)
+loop_end:    ;if cell nonzero, jump back to loop start (TOS)
+    movfw   INDF
+    btfsc   STATUS, Z
+    goto    loop_exit	;leave loop if zero
+    movfw   FSR	    ;backup cell pointer
+    movwf   BUFF
+    movfw   STA
+    andlw   0x07    ;mask
+    addlw   stackoffset-1
+    movwf   FSR
+    movfw   INDF
+    movwf   INST
+    movfw   BUFF
+    movwf   FSR	    ;restore stack ptr
+    return
+    
+loop_exit:  ;leaving loop, pop the stack and continue
+    decf    STA
+    bcf	    STA, 3
+    return
 
 out_cell:   ;display byte on LCD  (.)
     movfw   INDF
@@ -430,8 +454,12 @@ out_cell:   ;display byte on LCD  (.)
     call    lcd_write
     return
 
-;in_cell: ;load input into byte (,)
-;    return
+in_cell: ;load input into byte (,)
+    return
+    
+bf_end:	    ;reached end of program, return to idle
+    bsf	    bfcmode
+    return
 
 wait:    ;wait approx. DELAY millisecs
     movlw   .200     ;run 200 times
