@@ -170,12 +170,9 @@ disp: ;scan through code in EEPROM until EOF (0x08)
     bcf     STATUS, RP0
     btfss   INST, 0 ;check if even and swap
     swapf   EEDATA, F
-    movfw   EEDATA ;check for EOF
-    andlw   0x0F
-    sublw   0x08
-    btfsc   STATUS, Z
+    movfw   EEDATA  ;if odd, move without swapping
+    btfsc   EEDATA, 3  ;check for EOF
     goto    edit_start
-    movfw   EEDATA
     andlw   0x07
     movwf   BUFF
     call    lcd_print_cmd
@@ -322,8 +319,8 @@ isr_input:      ;run-mode input ISR
     ;Convert to ASCII hex and update LCD (based on code from from piclist.com)
     swapf   INDF, W ;upper nybble
     andlw   0x0F
-    addlw   6
-    skpndc
+    addlw   6 ;check if >9
+    skpndc  ;skip if no digit carry (0-9)
     addlw   'A'-('9'+1)
     addlw   '0'-6
     movwf   BUFF
