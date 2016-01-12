@@ -1,14 +1,14 @@
 MPLINK 5.08, LINKER
-Linker Map File - Created Thu Sep 10 21:25:50 2015
+Linker Map File - Created Mon Jan 11 19:59:27 2016
 
                                  Section Info
                   Section       Type    Address   Location Size(Bytes)
                 ---------  ---------  ---------  ---------  ---------
                    .org_1       code   0x000000    program   0x000002
                    .cinit    romdata   0x000001    program   0x000004
-                   .org_2       code   0x000004    program   0x0003b2
+                   .org_2       code   0x000004    program   0x0003e4
 .config_2007_BUILD/DEFAULT/PRODUCTION/MAIN.O       code   0x002007    program   0x000002
-                   .org_0       code   0x002100    program   0x00000c
+                   .org_0       code   0x002100    program   0x000068
 
 
 
@@ -16,125 +16,127 @@ Linker Map File - Created Thu Sep 10 21:25:50 2015
                                Start         End      
                            ---------   ---------      
                             0x000000    0x000002      
-                            0x000004    0x0001dc      
+                            0x000004    0x0001f5      
                             0x002007    0x002007      
-                            0x002100    0x002105      
-            483 out of 1093 program addresses used, program memory utilization is 44%
+                            0x002100    0x002133      
+            554 out of 1093 program addresses used, program memory utilization is 50%
 
 
 
                               Symbols - Sorted by Name
                      Name    Address   Location    Storage File                     
                 ---------  ---------  ---------  --------- ---------                
-             _.org_2_00A1   0x0000a1    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-             _.org_2_01BA   0x0001ba    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-             _.org_2_01C7   0x0001c7    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-             _.org_2_01C9   0x0001c9    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-             _.org_2_01CF   0x0001cf    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-             _.org_2_01D1   0x0001d1    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-                bf_decode   0x00002d    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-                   bf_end   0x0001c2    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-                 dec_cell   0x000178    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-                  dec_ptr   0x00016f    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-                     disp   0x000067    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-                edit_idle   0x00008a    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-               edit_start   0x000085    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-                     idle   0x00008f    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-                  in_cell   0x0001a1    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-                in_decode   0x000037    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-                 inc_cell   0x000176    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-                  inc_ptr   0x000168    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-                     isr2   0x00000c    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-                     isr3   0x000018    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-               isr_editor   0x0000bb    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-         isr_editor_cont1   0x0000cd    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-                isr_input   0x0000eb    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-                  l4_loop   0x000131    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-                lcd_line2   0x000162    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-            lcd_print_cmd   0x000108    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-           lcd_print_cmd2   0x000116    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-            lcd_print_ptr   0x00010f    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-                lcd_write   0x000118    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-                  load_bf   0x000063    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-                 loop_end   0x00018c    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-                loop_exit   0x00019a    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-                loop_skip   0x00018a    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-               loop_start   0x00017a    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-                      msg   0x00001e    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-                 out_cell   0x00019d    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-                  r4_loop   0x00013c    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-                  resetBF   0x0001d4    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-                 resetLCD   0x00014a    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-                   right4   0x00013a    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-                      run   0x000092    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-                 run_loop   0x0000a5    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-            run_loop_skip   0x0000b6    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-                   shift2   0x000140    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-                   shift4   0x00012f    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-                   splash   0x000051    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-                    start   0x000040    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-               start_cont   0x00005d    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-                     wait   0x0001c5    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-                   wait50   0x0001cd    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-                 waitloop   0x0001c6    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-                write_odd   0x0000c9    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+             _.org_2_00AA   0x0000aa    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+             _.org_2_01C3   0x0001c3    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+             _.org_2_01E0   0x0001e0    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+             _.org_2_01E2   0x0001e2    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+             _.org_2_01E8   0x0001e8    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+             _.org_2_01EA   0x0001ea    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+                bf_decode   0x000037    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+                   bf_end   0x0001db    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+                 dec_cell   0x000181    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+                  dec_ptr   0x000178    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+                     disp   0x000073    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+                edit_idle   0x000093    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+               edit_start   0x00008e    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+                     idle   0x000098    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+                  in_cell   0x0001aa    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+                in_decode   0x000041    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+                 inc_cell   0x00017f    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+                  inc_ptr   0x000171    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+                     isr2   0x000011    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+                     isr3   0x00001d    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+             isr_debounce   0x000023    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+               isr_editor   0x0000c4    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+         isr_editor_cont1   0x0000d6    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+                isr_input   0x0000f4    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+                  l4_loop   0x00013a    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+                lcd_line2   0x00016b    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+            lcd_print_cmd   0x000111    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+           lcd_print_cmd2   0x00011f    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+            lcd_print_ptr   0x000118    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+                lcd_write   0x000121    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+                  load_bf   0x00006f    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+                 loop_end   0x000195    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+                loop_exit   0x0001a3    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+                loop_skip   0x000193    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+               loop_start   0x000183    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+                      msg   0x000028    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+                 out_cell   0x0001a6    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+                  r4_loop   0x000145    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+                  resetBF   0x0001ed    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+                 resetLCD   0x000153    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+                   right4   0x000143    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+                      run   0x00009b    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+                 run_loop   0x0000ae    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+            run_loop_skip   0x0000bf    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+                   shift2   0x000149    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+                   shift4   0x000138    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+                   splash   0x00005d    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+                    start   0x00004a    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+               start_cont   0x000069    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+                     wait   0x0001de    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+                   wait50   0x0001e6    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+                 waitloop   0x0001df    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+                write_odd   0x0000d2    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
 
 
 
                               Symbols - Sorted by Address
                      Name    Address   Location    Storage File                     
                 ---------  ---------  ---------  --------- ---------                
-                     isr2   0x00000c    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-                     isr3   0x000018    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-                      msg   0x00001e    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-                bf_decode   0x00002d    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-                in_decode   0x000037    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-                    start   0x000040    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-                   splash   0x000051    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-               start_cont   0x00005d    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-                  load_bf   0x000063    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-                     disp   0x000067    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-               edit_start   0x000085    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-                edit_idle   0x00008a    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-                     idle   0x00008f    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-                      run   0x000092    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-             _.org_2_00A1   0x0000a1    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-                 run_loop   0x0000a5    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-            run_loop_skip   0x0000b6    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-               isr_editor   0x0000bb    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-                write_odd   0x0000c9    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-         isr_editor_cont1   0x0000cd    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-                isr_input   0x0000eb    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-            lcd_print_cmd   0x000108    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-            lcd_print_ptr   0x00010f    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-           lcd_print_cmd2   0x000116    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-                lcd_write   0x000118    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-                   shift4   0x00012f    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-                  l4_loop   0x000131    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-                   right4   0x00013a    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-                  r4_loop   0x00013c    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-                   shift2   0x000140    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-                 resetLCD   0x00014a    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-                lcd_line2   0x000162    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-                  inc_ptr   0x000168    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-                  dec_ptr   0x00016f    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-                 inc_cell   0x000176    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-                 dec_cell   0x000178    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-               loop_start   0x00017a    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-                loop_skip   0x00018a    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-                 loop_end   0x00018c    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-                loop_exit   0x00019a    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-                 out_cell   0x00019d    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-                  in_cell   0x0001a1    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-             _.org_2_01BA   0x0001ba    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-                   bf_end   0x0001c2    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-                     wait   0x0001c5    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-                 waitloop   0x0001c6    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-             _.org_2_01C7   0x0001c7    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-             _.org_2_01C9   0x0001c9    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-                   wait50   0x0001cd    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-             _.org_2_01CF   0x0001cf    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-             _.org_2_01D1   0x0001d1    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
-                  resetBF   0x0001d4    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+                     isr2   0x000011    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+                     isr3   0x00001d    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+             isr_debounce   0x000023    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+                      msg   0x000028    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+                bf_decode   0x000037    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+                in_decode   0x000041    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+                    start   0x00004a    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+                   splash   0x00005d    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+               start_cont   0x000069    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+                  load_bf   0x00006f    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+                     disp   0x000073    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+               edit_start   0x00008e    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+                edit_idle   0x000093    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+                     idle   0x000098    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+                      run   0x00009b    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+             _.org_2_00AA   0x0000aa    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+                 run_loop   0x0000ae    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+            run_loop_skip   0x0000bf    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+               isr_editor   0x0000c4    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+                write_odd   0x0000d2    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+         isr_editor_cont1   0x0000d6    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+                isr_input   0x0000f4    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+            lcd_print_cmd   0x000111    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+            lcd_print_ptr   0x000118    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+           lcd_print_cmd2   0x00011f    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+                lcd_write   0x000121    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+                   shift4   0x000138    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+                  l4_loop   0x00013a    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+                   right4   0x000143    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+                  r4_loop   0x000145    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+                   shift2   0x000149    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+                 resetLCD   0x000153    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+                lcd_line2   0x00016b    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+                  inc_ptr   0x000171    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+                  dec_ptr   0x000178    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+                 inc_cell   0x00017f    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+                 dec_cell   0x000181    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+               loop_start   0x000183    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+                loop_skip   0x000193    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+                 loop_end   0x000195    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+                loop_exit   0x0001a3    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+                 out_cell   0x0001a6    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+                  in_cell   0x0001aa    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+             _.org_2_01C3   0x0001c3    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+                   bf_end   0x0001db    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+                     wait   0x0001de    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+                 waitloop   0x0001df    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+             _.org_2_01E0   0x0001e0    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+             _.org_2_01E2   0x0001e2    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+                   wait50   0x0001e6    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+             _.org_2_01E8   0x0001e8    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+             _.org_2_01EA   0x0001ea    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
+                  resetBF   0x0001ed    program     static /Users/dolenle/MPLABXProjects/BFComputer.X/main.asm
 
 

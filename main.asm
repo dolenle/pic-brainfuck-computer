@@ -18,14 +18,14 @@
     __CONFIG _CP_OFF & _PWRTE_ON & _WDT_OFF & _HS_OSC
     ;Fuses: code protect off, poweron timer on, watchdog off, high-speed xtal
 
-#define srdata PORTB, 2 ;Actual pin 8
-#define srclock PORTB, 3 ;Actual pin 9
-#define srlatch PORTB, 1 ;Actual pin 7
-#define	statusled PORTA, 3 ;status LED on pin 2
+#define srdata	    PORTB, 2 ;Actual pin 8
+#define srclock	    PORTB, 3 ;Actual pin 9
+#define srlatch	    PORTB, 1 ;Actual pin 7
+#define	statusled   PORTA, 3 ;status LED on pin 2
     
 #define	runbutton   PORTB, 4 ;run button
-#define inbutton    PORTB, 5 ;input entry
-#define	bsbutton    PORTB, 6 ;backspace
+#define inbutton    PORTB, 5 ;input entry button
+#define	bsbutton    PORTB, 6 ;backspace button
 
 #define lcdmode STA, 7 ;LCD status bit (command/data)
 #define bfcmode STA, 6 ;mode bit (edit/run)
@@ -54,7 +54,12 @@ INST    EQU 0x10    ;brainfuck "program counter" and input pointer
     ORG 0x00
     goto    start
 
-    ORG 0x04 ;ISR
+    ORG 0x04 ;ISR Vector
+    btfss   INTCON, T0IE    ;If T0IE enabled, waiting for debounce timer
+    goto    isr_debounce
+    movlw   0xFF-.50	    ;set debounce timer (50 ticks = 12.5ms)
+    movwf   TMR0
+    bcf	    INTCON, T0IE    ;start debounce timer
     
     btfss   INTCON, INTF ;external interrupt (buttons) or onchange?
     goto    isr2    ;INTF clear, interrupt not caused by encoder
@@ -81,8 +86,14 @@ isr3:
     btfsc   inbutton
     btfss   inflag
     retfie
-    btfss   bfcmode
-    bcf	    inflag
+    btfss   bfcmode	;check mode
+    bcf	    inflag	;clear input flag
+    retfie
+isr_debounce:
+    btfss   OPTION_REG, T0IF ;check if timer overflowed
+    retfie	;if not overflowed yet, ignore interrupt
+    bcf	    OPTION_REG, T0IF	;clear flag and disable timer interrupt
+    bsf	    INTCON, T0IE
     retfie
 
 msg:	    ;splash msg lookup table
@@ -114,7 +125,7 @@ in_decode:  ;input decode table (depends on physical arrangement of buttons)
 
 start:
     bsf     STATUS, RP0	;Bank 1
-    movlw   0xF1	;input on pin RB0 and RB4:7
+    movlw   0x31	;input on pin RB0 and RB4:7
     movwf   TRISB	;set PORTB tristate
     movlw   0x07
     movwf   TRISA	;set PORTA input on lower 3 bits
@@ -122,6 +133,8 @@ start:
     clrf    PORTB
     clrf    PORTA
     bcf	    STATUS, Z
+    movlw   0xD7	;enable timer0 mode w/ 256 prescale
+    option
     
     btfsc   runbutton
     call    resetBF
@@ -316,11 +329,11 @@ isr_input:      ;run-mode input ISR
     call    in_decode	;W contains keypad entry
     xorwf   INDF, F	;update value of current cell
     
-    ;Convert to ASCII hex and update LCD (based on code from from piclist.com)
+    ;Convert to ASCII hex and update LCD
     swapf   INDF, W ;upper nybble
     andlw   0x0F
     addlw   6 ;check if >9
-    skpndc  ;skip if no digit carry (0-9)
+    skpndc
     addlw   'A'-('9'+1)
     addlw   '0'-6
     movwf   BUFF
@@ -548,7 +561,7 @@ in_cell: ;load input into byte (,)
     bsf     INTCON, INTE ;enable keypad interrupt
     clrf    INDF	;clear current cell
     bcf     lcdmode  ;lcd command mode
-    movlw   b'00001101'   ;hide cursor
+    movlw   b'00001100'   ;hide cursor
     movwf   BUFF
     call    lcd_write
     bsf     lcdmode ;back to data mode
