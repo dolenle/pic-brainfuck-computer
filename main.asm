@@ -55,12 +55,12 @@ INST    EQU 0x10    ;brainfuck "program counter" and input pointer
     goto    start
 
     ORG 0x04 ;ISR Vector
-    btfss   INTCON, T0IE    ;If T0IE enabled, waiting for debounce timer
+    btfsc   INTCON, T0IE    ;If T0IE enabled, waiting for debounce timer
     goto    isr_debounce
     movlw   0xFF-.50	    ;set debounce timer (50 ticks = 12.5ms)
     movwf   TMR0
-    bcf	    INTCON, T0IE    ;start debounce timer
-    
+    bsf	    INTCON, T0IE    ;start debounce timer
+    btfsc   INTCON, INTE
     btfss   INTCON, INTF ;external interrupt (buttons) or onchange?
     goto    isr2    ;INTF clear, interrupt not caused by encoder
     bcf     INTCON, INTF ;clear ext interrupt flag
@@ -90,10 +90,10 @@ isr3:
     bcf	    inflag	;clear input flag
     retfie
 isr_debounce:
-    btfss   OPTION_REG, T0IF ;check if timer overflowed
+    btfss   INTCON, T0IF ;check if timer overflowed
     retfie	;if not overflowed yet, ignore interrupt
-    bcf	    OPTION_REG, T0IF	;clear flag and disable timer interrupt
-    bsf	    INTCON, T0IE
+    bcf	    INTCON, T0IF	;clear flag and disable timer interrupt
+    bcf	    INTCON, T0IE
     retfie
 
 msg:	    ;splash msg lookup table
