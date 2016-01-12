@@ -70,6 +70,7 @@ INST    EQU 0x10    ;brainfuck "program counter" and input pointer
     goto    isr_editor  ;edit
     goto    isr_input   ;input
 isr2:    ;PORTB onchange interrupt (PORTB 4:7)
+    bcf	    INTCON, INTF ;clear ext flag anyway
     btfss   INTCON, RBIF
     retfie
     movfw   PORTB
@@ -83,10 +84,10 @@ isr2:    ;PORTB onchange interrupt (PORTB 4:7)
     bsf	    bfcmode ;return to editor mode
     retfie    
 isr3:
-    btfsc   inbutton
-    btfss   inflag
+    btfss   inbutton
     retfie
-    btfss   bfcmode	;check mode
+    btfsc   bfcmode	;check mode
+    goto    isr_backspace
     bcf	    inflag	;clear input flag
     retfie
 isr_debounce:
@@ -99,6 +100,10 @@ isr_debounce:
 msg:	    ;splash msg lookup table
     addwf   PCL, F
     dt "PIC Brainfuck", 0
+    
+clr_msg:    ;EEPROM clear message
+    addwf   PCL, F
+    dt "EEPROM Clear", 0
     
 bf_decode:  ;BF instruction table
     addwf   PCL, F
@@ -136,17 +141,22 @@ start:
     movlw   0xD7	;enable timer0 mode w/ 256 prescale
     option
     
-    btfsc   runbutton
-    call    resetBF
-    
     movlw   .50
     movwf   DELAY
     call    wait   ;delay 50ms
-    call    resetLCD
+    call    lcd_reset
     call    wait50
     clrf    INST
+    
+    btfsc   runbutton
+    call    clear_BF
 
 splash:
+    bcf     lcdmode  ;lcd command mode
+    movlw   b'00001100'   ;hide cursor
+    movwf   BUFF
+    call    lcd_write
+    bsf     lcdmode ;data mode
     movfw   INST    ;temporarily use INST as index
     call    msg	    ;get next char (retwl)
     iorlw   0	    ;branch if end of string
@@ -167,12 +177,17 @@ start_cont:
     movlw   0xFF
     movwf   DELAY
     call    wait
+    bcf     lcdmode	;command mode
+    movlw   b'00001111'   ;restore LCD cursor
+    movwf   BUFF
+    call    lcd_write
+    bsf     lcdmode ;data mode
 
 load_bf:
     bcf	    statusled
     clrf    INST
     clrf    EEADR
-    call    resetLCD ;clear lcd
+    call    lcd_reset ;clear lcd
 
 disp: ;scan through code in EEPROM until EOF (0x08)
     bcf	    STATUS, C
@@ -200,7 +215,7 @@ disp: ;scan through code in EEPROM until EOF (0x08)
     andlw   0x1F
     btfss   STATUS, Z  ;if screen full (32 chars), clear lcd
     goto    disp
-    call    resetLCD   ;clear the screen
+    call    lcd_reset   ;clear the screen
     goto    disp
     
 edit_start:
@@ -223,7 +238,7 @@ idle:
     goto    idle
 
 run:
-    call    resetLCD
+    call    lcd_reset
     bcf	    loopskip	;clear loop skip flag
     bcf	    inflag
     bcf     INTCON, INTE    ;disable RB0 interrupt while running
@@ -322,7 +337,7 @@ isr_editor_cont1:
     andlw   0x1F
     btfss   STATUS, Z  ;if screen full (32 chars), clear lcd
     retfie
-    call    resetLCD   ;clear the screen
+    call    lcd_reset   ;clear the screen
     retfie
 
 isr_input:      ;run-mode input ISR
@@ -359,7 +374,36 @@ isr_input:      ;run-mode input ISR
     bsf	    lcdmode ;data mode
     
     retfie
-    
+
+isr_backspace:
+    btfsc   statusled
+    retfie
+    decf    INST
+    movlw   0x08
+    call    isr_editor
+    decf    INST
+    ;write backspace to the LCD
+    bcf	    lcdmode ;command mode
+    movlw   0x04    ;decrement cursor/addr
+    movwf   BUFF
+    call    lcd_write
+    bsf	    lcdmode
+    movlw   0x20
+    movwf   BUFF
+    call    lcd_write
+    call    lcd_write
+    call    lcd_write	;cursor should move 3 spaces back
+    bcf	    lcdmode ;command mode
+    movlw   0x14
+    movwf   BUFF
+    call    lcd_write
+    movlw   0x06    ;increment cursor/addr
+    movwf   BUFF
+    call    lcd_write
+    bsf	    lcdmode ;back to data mode
+    retfie
+   
+;LCD helper routines
 lcd_print_cmd: ;convert BF command in BUFF to ASCII and write to LCD
     movfw   BUFF
     btfsc   BUFF, 2 ;check 3rd bit
@@ -447,7 +491,7 @@ shift2:     ;shift out the last 2 bits (Enable then RS), then latch
     bcf     srlatch
     return
 
-resetLCD:    ;initialize LCD - E, RS and D4-D7 to lower 6 bits of 4094
+lcd_reset:    ;initialize LCD - E, RS and D4-D7 to lower 6 bits of 4094
     bcf     lcdmode      ;LCD command mode
     movlw   b'00110011' ;initialize lcd (try 2 times)
     movwf   BUFF
@@ -642,11 +686,23 @@ wait50:     ;wait approx. 50 microseconds (4MHz)
     nop
     return
     
-resetBF: ;write a EOF to beginning of EEPROM, effectively clearing it
+clear_BF: ;write a EOF to beginning of EEPROM, effectively clearing it
     clrf    INST
     movlw   0x08
     bsf	    statusled
     call    isr_editor ;eh
+    call    lcd_reset
+clear_splash:
+    movfw   INST    ;temporarily use INST as index
+    call    clr_msg	    ;get next char (retwl)
+    iorlw   0	    ;EOL
+    btfsc   STATUS, Z
+    goto    start_cont
+    movwf   BUFF
+    call    lcd_write
+    incf    INST, F
+    goto    clear_splash
+    clrf    INST
     movlw   0xFF
     movwf   DELAY
     call    wait
