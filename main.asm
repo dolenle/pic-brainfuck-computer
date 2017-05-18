@@ -18,17 +18,16 @@
     __CONFIG _CP_OFF & _PWRTE_ON & _WDT_OFF & _HS_OSC
     ;Fuses: code protect off, poweron timer on, watchdog off, high-speed xtal
 
-#define srdata	    PORTB, 2 ;Actual pin 8
-#define srclock	    PORTB, 3 ;Actual pin 9
-#define srlatch	    PORTB, 1 ;Actual pin 7
-#define	statusled   PORTA, 3 ;status LED on pin 2
+#define srdata	    PORTB, 2 ;Physical pin 8
+#define srclock	    PORTB, 3 ;Physical pin 9
+#define srlatch	    PORTB, 1 ;Physical pin 7
+#define	statusled   PORTA, 3 ;Status LED on pin 2
     
-#define	runbutton   PORTB, 4 ;run button
-#define inbutton    PORTB, 5 ;input entry button
-#define	bsbutton    PORTB, 6 ;backspace button
+#define	runbutton   PORTB, 4 ;Run/Edit mode button
+#define inbutton    PORTB, 5 ;Input entry/Backspace button
 
-#define lcdmode STA, 7 ;LCD status bit (command/data)
-#define bfcmode STA, 6 ;mode bit (edit/run)
+#define lcdmode STA, 7	;LCD status bit (command/data)
+#define bfcmode STA, 6	;mode bit (edit/run)
 #define	loopskip STA, 5 ;loop skip flag
 #define	inflag	STA, 4	;data input mode flag
 
@@ -45,67 +44,70 @@ INST    EQU 0x10    ;brainfuck "program counter" and input pointer
     
 ; REGISTERS 0x11 thru 0x18 RESERVED FOR LOOP STACK
 
-    ORG 0x2100 ;preload in eeprom
-    ;de 0x7,0x61,0x31,0x33,0x34,0x58 ;cat
+    ORG 0x2100 ;Preloaded code in eeprom
+    ;de 0x7,0x61,0x31,0x33,0x34,0x58 ;cat program
     ;hello world:
-    de 0x0,0x0,0x0,0x0,0x76,0x0,0x0,0x76,0x0,0x60,0x0,0x60,0x0,0x60,0x44,0x44,0x25,0x60,0x60,0x62,0x66,0x7,0x45,0x42,0x56,0x63,0x62,0x22,0x30,0x0,0x0,0x0,0x33,0x0,0x3,0x66,0x34,0x23,0x43,0x0,0x3
-    de 0x22,0x22,0x22,0x32,0x22,0x22,0x22,0x23,0x66,0x3,0x83;skip the newline
+    de 0x0,0x0,0x0,0x0,0x76,0x0,0x0,0x76,0x0,0x60,0x0,0x60,0x0,0x60,0x44,0x44
+    de 0x25,0x60,0x60,0x62,0x66,0x7,0x45,0x42,0x56,0x63,0x62,0x22,0x30,0x0
+    de 0x0,0x0,0x33,0x0,0x3,0x66,0x34,0x23,0x43,0x0,0x3
+    de 0x22,0x22,0x22,0x32,0x22,0x22,0x22,0x23,0x66,0x3,0x83
     
     ORG 0x00
     goto    start
 
     ORG 0x04 ;ISR Vector
-    btfsc   INTCON, T0IE    ;If T0IE enabled, waiting for debounce timer
+    btfsc   INTCON, T0IE    ;If T0IE is set, debounce timer is active
     goto    isr_debounce
-    movlw   0xFF-.50	    ;set debounce timer (50 ticks = 12.5ms)
-    movwf   TMR0
+    clrf    TMR0	    ;Clear debounce timer (65536us delay)
     bsf	    INTCON, T0IE    ;start debounce timer
     btfsc   INTCON, INTE
-    btfss   INTCON, INTF ;external interrupt (buttons) or onchange?
-    goto    isr2    ;INTF clear, interrupt not caused by encoder
-    bcf     INTCON, INTF ;clear ext interrupt flag
-    movfw   PORTA   ;quickly, read input into W
-    andlw   0x07    ;keep 3 bits
-    btfsc   bfcmode     ;check mode
-    goto    isr_editor  ;edit
-    goto    isr_input   ;input
-isr2:    ;PORTB onchange interrupt (PORTB 4:7)
-    bcf	    INTCON, INTF ;clear ext flag anyway
-    btfss   INTCON, RBIF
+    btfss   INTCON, INTF    ;External interrupt (keypad) or onchange (RUN/OK)?
+    goto    isr_onchange    ;INTF clear, interrupt not caused by encoder keypad
+    bcf     INTCON, INTF    ;Clear ext interrupt flag
+    movfw   PORTA	    ;Read keypad input into W
+    andlw   0x07	    ;Keep 3 bits
+    btfsc   bfcmode	    ;check mode
+    goto    isr_editor	    ;Edit mode, process BF command
+    goto    isr_input	    ;Run mode, update cell input
+isr_onchange:		    ;PORTB onchange interrupt (PORTB 4:7)
+    bcf	    INTCON, INTF    ;Clear ext flag anyway
+    btfss   INTCON, RBIF    ;Check for onchange interrupt
     retfie
-    movfw   PORTB
+    movfw   PORTB	    ;Read PORTB to allow RBIF to be cleared
     bcf	    INTCON, RBIF    ;clear flag to stop interrupt loop
-    btfss   runbutton
-    goto    isr3
-    bcf	    bfcmode ;begin run mode
-    btfss   statusled	;is program done?
+    btfsc   runbutton	    ;Mode button pressed, goto isr_run_btn
+    goto    isr_run_btn
+    btfsc   inbutton	    ;Input button pressed, goto isr_in_btn
+    goto    isr_in_btn
+    retfie
+isr_run_btn:
+    bcf	    bfcmode	    ;Begin run mode
+    btfss   statusled	    ;Is program done?
     retfie
     bcf	    statusled
-    bsf	    bfcmode ;return to editor mode
+    bsf	    bfcmode	    ;Return to editor mode
     retfie    
-isr3:
-    btfss   inbutton
-    retfie
-    btfsc   bfcmode	;check mode
+isr_in_btn:
+    btfsc   bfcmode	    ;Check mode, 1=editor (backspace) 0=run (input)
     goto    isr_backspace
-    bcf	    inflag	;clear input flag
+    bcf	    inflag	    ;Clear input flag
     retfie
 isr_debounce:
-    btfss   INTCON, T0IF ;check if timer overflowed
-    retfie	;if not overflowed yet, ignore interrupt
-    bcf	    INTCON, T0IF	;clear flag and disable timer interrupt
-    bcf	    INTCON, T0IE
+    btfss   INTCON, T0IF    ;Check if timer overflowed
+    retfie		    ;If not overflowed yet, ignore interrupt
+    bcf	    INTCON, T0IE    ;Clear flag and disable timer interrupt
+    bcf	    INTCON, T0IF
     retfie
 
-msg:	    ;splash msg lookup table
+splash_msg:	;Splash msg lookup table
     addwf   PCL, F
     dt "PIC Brainfuck", 0
     
-clr_msg:    ;EEPROM clear message
+clr_msg:	;EEPROM clear message
     addwf   PCL, F
-    dt "EEPROM Clear", 0
+    dt "EEPROM Cleared", 0
     
-bf_decode:  ;BF instruction table
+bf_decode:	;BF instruction table
     addwf   PCL, F
     goto    inc_cell	;+
     goto    in_cell	;,
@@ -117,7 +119,7 @@ bf_decode:  ;BF instruction table
     goto    loop_start	;[
     goto    bf_end
     
-in_decode:  ;input decode table (depends on physical arrangement of buttons)
+in_decode:	;Input decode table (depends on physical arrangement of buttons)
     addwf   PCL, F  ;buttons order (L to R): < > + - . , [ ]
     retlw   0x20    ;+
     retlw   0x04    ;,
@@ -143,7 +145,7 @@ start:
     
     movlw   .50
     movwf   DELAY
-    call    wait   ;delay 50ms
+    call    wait	;Delay 50ms
     call    lcd_reset
     call    wait50
     clrf    INST
@@ -152,54 +154,54 @@ start:
     call    clear_BF
 
 splash:
-    bcf     lcdmode  ;lcd command mode
-    movlw   b'00001100'   ;hide cursor
+    bcf     lcdmode	    ;LCD command mode
+    movlw   b'00001100'	    ;Hide cursor
     movwf   BUFF
     call    lcd_write
-    bsf     lcdmode ;data mode
-    movfw   INST    ;temporarily use INST as index
-    call    msg	    ;get next char (retwl)
-    iorlw   0	    ;branch if end of string
+    bsf     lcdmode	    ;LCD data mode
+    movfw   INST	    ;Temporarily use INST as index
+    call    splash_msg	    ;Get next char (retwl)
+    iorlw   0		    ;Branch if end of string
     btfsc   STATUS, Z
     goto    start_cont
     movwf   BUFF
     call    lcd_write
     incf    INST, F
     movlw   0x1F
-    movwf   DELAY	;create scroll effect
+    movwf   DELAY	    ;Create scroll effect
     call    wait
     goto    splash
     
 start_cont:
     movlw   0xFF
-    movwf   DELAY ;delay ~0.5 second for splash screen
+    movwf   DELAY	    ;Delay ~0.5 second for splash screen
     call    wait
     movlw   0xFF
     movwf   DELAY
     call    wait
-    bcf     lcdmode	;command mode
-    movlw   b'00001111'   ;restore LCD cursor
+    bcf     lcdmode	    ;Command mode
+    movlw   b'00001111'	    ;Restore LCD cursor
     movwf   BUFF
     call    lcd_write
-    bsf     lcdmode ;data mode
+    bsf     lcdmode	    ;Data mode
 
 load_bf:
     bcf	    statusled
     clrf    INST
     clrf    EEADR
-    call    lcd_reset ;clear lcd
+    call    lcd_reset	    ;Clear lcd
 
 disp: ;scan through code in EEPROM until EOF (0x08)
     bcf	    STATUS, C
     rrf     INST, W
     movwf   EEADR
-    bsf     STATUS, RP0 ;bank 1
-    bsf     EECON1, RD  ;read EEPROM, EEDATA contains byte
+    bsf     STATUS, RP0	    ;Bank 1
+    bsf     EECON1, RD	    ;Read EEPROM, EEDATA contains byte
     bcf     STATUS, RP0
-    btfss   INST, 0 ;check if even and swap
+    btfss   INST, 0	    ;Check if even and swap
     swapf   EEDATA, F
-    movfw   EEDATA  ;if odd, move without swapping
-    btfsc   EEDATA, 3  ;check for EOF
+    movfw   EEDATA	    ;If odd, move without swapping
+    btfsc   EEDATA, 3	    ;Check for EOF
     goto    edit_start
     andlw   0x07
     movwf   BUFF
@@ -208,19 +210,19 @@ disp: ;scan through code in EEPROM until EOF (0x08)
     movfw   INST
     sublw   0x10
     andlw   0x1F
-    btfsc   STATUS, Z  ;if line full (16 chars), move lcd cursor
+    btfsc   STATUS, Z	    ;If line full (16 chars), move lcd cursor
     call    lcd_line2
-    movfw   INST    ;repeat for 32
+    movfw   INST	    ;Repeat for 32
     sublw   0x20
     andlw   0x1F
-    btfss   STATUS, Z  ;if screen full (32 chars), clear lcd
+    btfss   STATUS, Z	    ;If screen full (32 chars), clear lcd
     goto    disp
-    call    lcd_reset   ;clear the screen
+    call    lcd_reset	    ;Clear the screen
     goto    disp
     
 edit_start:
-    bsf     bfcmode ;editor mode
-    clrf    EEADR   ;EEPROM
+    bsf     bfcmode	    ;Enter editor mode
+    clrf    EEADR	    ;EEPROM
     bsf     INTCON, INTE    ;enable ext. interrupt on RB0
     bsf	    INTCON, RBIE    ;enable port B change interrupt
     bsf     INTCON, GIE	    ;global interrupt enable
@@ -228,8 +230,8 @@ edit_start:
 edit_idle:
     btfsc   bfcmode
     goto    edit_idle
-    movlw   0x08 ;write EOF
-    call    isr_editor ;calling an interrupt manually?
+    movlw   0x08	    ;Write EOF
+    call    isr_editor	    ;Calling an interrupt manually?
     goto    run
 
 idle:
@@ -239,15 +241,15 @@ idle:
 
 run:
     call    lcd_reset
-    bcf	    loopskip	;clear loop skip flag
+    bcf	    loopskip	    ;Clear loop skip flag
     bcf	    inflag
-    bcf     INTCON, INTE    ;disable RB0 interrupt while running
-    clrf    INST ;clear instruction pointer
-    movfw   STA	;clear stack
+    bcf     INTCON, INTE    ;Disable RB0 interrupt while running
+    clrf    INST	    ;Clear instruction pointer
+    movfw   STA		    ;Clear stack
     andlw   0xF0
     movwf   STA
     movlw   cellstart
-    movwf   FSR	    ;clear RAM
+    movwf   FSR		    ;Clear RAM
     clrf    INDF
     incf    FSR, F
     movfw   FSR
@@ -255,71 +257,76 @@ run:
     btfss   STATUS, Z
     goto    $-5
     movlw   cellstart
-    movwf   FSR	;move cell pointer to start
+    movwf   FSR		    ;Move cell pointer to start
     clrf    EEADR
    
 run_loop:
     ;Begin running BF code
     bcf	    STATUS, C
-    rrf     INST, W ;divide by 2
+    rrf     INST, W	    ;Divide by 2
     movwf   EEADR
-    bsf     STATUS, RP0 ;bank 1
-    bsf     EECON1, RD  ;read EEPROM, EEDATA contains byte
-    bcf     STATUS, RP0	;bank 0
+    bsf     STATUS, RP0	    ;Bank 1
+    bsf     EECON1, RD	    ;Read EEPROM, EEDATA contains byte
+    bcf     STATUS, RP0	    ;Bank 0
     movfw   EEDATA
-    btfss   INST, 0 ;If even instruction, swap nibbles
+    btfss   INST, 0	    ;If even instruction, swap nibbles
     swapf   EEDATA, W
     andlw   0x0F
     btfsc   loopskip
     goto    run_loop_skip
     call    bf_decode
     incf    INST, F
-    btfsc   bfcmode ;check mode
-    goto    idle    ;stop running
-    goto    run_loop ;continue
+    btfsc   bfcmode	    ;Check mode
+    goto    idle	    ;Stop running
+    goto    run_loop	    ;Continue
     
 run_loop_skip:
-    sublw   0x05 ;check for ]
+    sublw   0x05	    ;Check for ]
     btfsc   STATUS, Z
-    bcf	    loopskip ;break out of skip loop
+    bcf	    loopskip	    ;Break out of skip loop
     incf    INST, F
-    goto    run_loop	;continue
-
-isr_editor:     ;write command (in W) to eeprom and LCD (as ASCII)
-    movwf   BUFF  ;store input temporarily
+    goto    run_loop	    ;Continue
+    
+write_cmd:		    ;Write brainfuck command (in W) to EEPROM
+    movwf   BUFF	    ;Store input temporarily
     bcf	    STATUS, C
     rrf     INST, W
     movwf   EEADR
-    bsf     STATUS, RP0 ;bank 1
-    bsf     EECON1, RD  ;read EEPROM, EEDATA contains byte
+    bsf     STATUS, RP0	    ;Bank 1
+    bsf     EECON1, RD	    ;Read EEPROM, EEDATA contains byte
     bcf     STATUS, RP0
-
-    btfsc   INST, 0 ;continue if even instruction, else write_odd
-    goto    write_odd
+    btfsc   INST, 0	    ;Continue if even instruction, else write_odd
+    goto    write_cmd_odd
+write_cmd_even:
     swapf   BUFF, W
     xorwf   EEDATA, W
-    andlw   0xF0    ;keep upper nibble
+    andlw   0xF0	    ;Keep upper nibble
     xorwf   EEDATA, F
-    goto    isr_editor_cont1
-
-write_odd:
+    goto    write_cmd_end
+write_cmd_odd:
     movfw   BUFF
     xorwf   EEDATA, W
-    andlw   0x0F    ;keep lower nibble
+    andlw   0x0F	    ;Keep lower nibble
     xorwf   EEDATA, F
-
-isr_editor_cont1:
-    bsf     STATUS, RP0 ;bank 1
-    bsf     EECON1, WREN ;enable eeprom write
-    bcf	    INTCON, GIE	;disable interrupts
+write_cmd_end:
+    bsf     STATUS, RP0	    ;bank 1
+    bsf     EECON1, WREN    ;Enable EEPROM write
+    movfw   INTCON
+    movwf   BUFF	    ;Save interrupt state
+    bcf	    INTCON, GIE	    ;Disable interrupts
     movlw   0x55
     movwf   EECON2
     movlw   0xAA
-    movwf   EECON2 ;EEPROM write initialization procedure
-    bsf     EECON1, WR	;do the write
-    bsf	    INTCON, GIE	;enable interrupts
-    bsf     EECON1, RD  ;back to read mode
-    bcf     STATUS, RP0
+    movwf   EECON2	    ;EEPROM write initialization
+    bsf     EECON1, WR	    ;Do the write
+    btfsc   BUFF, GIE	    ;Check if interrupts enabled
+    bsf	    INTCON, GIE	    ;Re-enable interrupts
+    bsf     EECON1, RD	    ;Back to read mode
+    bcf     STATUS, RP0	    ;Bank 0
+    return
+
+isr_editor:     ;write command (in W) to eeprom and LCD (as ASCII)
+    call    write_cmd ;store to EEPROM
     movfw   EEDATA
     btfss   INST, 0
     swapf   EEDATA, W
@@ -378,21 +385,22 @@ isr_input:      ;run-mode input ISR
 isr_backspace:
     btfsc   statusled
     retfie
+    movf    INST, F
+    btfsc   STATUS, Z	;Nothing to delete
+    retfie
     decf    INST
-    movlw   0x08
-    call    isr_editor
-    decf    INST
+    movlw   0x08    ;EOF
+    call    write_cmd
     ;write backspace to the LCD
     bcf	    lcdmode ;command mode
     movlw   0x04    ;decrement cursor/addr
     movwf   BUFF
     call    lcd_write
     bsf	    lcdmode
-    movlw   0x20
+    movlw   0x20    ;ASCII space
     movwf   BUFF
     call    lcd_write
-    call    lcd_write
-    call    lcd_write	;cursor should move 3 spaces back
+    call    lcd_write	;cursor should move 2 spaces back
     bcf	    lcdmode ;command mode
     movlw   0x14
     movwf   BUFF
