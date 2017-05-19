@@ -38,7 +38,7 @@
 ; Various special registers:
 COUNT   EQU 0x0C    ;counter value
 DELAY   EQU 0x0D    ;millisecond delay
-BUFF	EQU 0x0E    ;EEPROM/LCD data buffer
+BUFF	EQU 0x0E    ;EEPROM/LCD data buffer (and scratch register)
 STA     EQU 0x0F    ;Stack pointer (lower 4 bits) and status/flag bits (upper 4)
 INST    EQU 0x10    ;brainfuck "program counter" and input pointer
     
@@ -75,6 +75,12 @@ isr_onchange:		    ;PORTB onchange interrupt (PORTB 4:7)
     retfie
     movfw   PORTB	    ;Read PORTB to allow RBIF to be cleared
     bcf	    INTCON, RBIF    ;clear flag to stop interrupt loop
+    andlw   0x30	    ;Mask button bits
+    btfsc   STATUS, Z
+    retfie
+    movlw   .50
+    movwf   DELAY
+    call    wait
     btfsc   runbutton	    ;Mode button pressed, goto isr_run_btn
     goto    isr_run_btn
     btfsc   inbutton	    ;Input button pressed, goto isr_in_btn
@@ -187,6 +193,7 @@ start_cont:
 
 load_bf:
     bcf	    statusled
+    bcf	    INTCON, GIE	    ;Disable global interrupts
     clrf    INST
     clrf    EEADR
     call    lcd_reset	    ;Clear lcd
@@ -231,10 +238,11 @@ edit_idle:
     btfsc   bfcmode
     goto    edit_idle
     movlw   0x08	    ;Write EOF
-    call    isr_editor	    ;Calling an interrupt manually?
+    call    write_cmd
     goto    run
 
 idle:
+    bsf	    INTCON, GIE
     btfss   statusled
     goto    load_bf
     goto    idle
@@ -243,7 +251,7 @@ run:
     call    lcd_reset
     bcf	    loopskip	    ;Clear loop skip flag
     bcf	    inflag
-    bcf     INTCON, INTE    ;Disable RB0 interrupt while running
+    bcf     INTCON, GIE     ;Disable interrupts while running
     clrf    INST	    ;Clear instruction pointer
     movfw   STA		    ;Clear stack
     andlw   0xF0
@@ -319,6 +327,9 @@ write_cmd_end:
     movlw   0xAA
     movwf   EECON2	    ;EEPROM write initialization
     bsf     EECON1, WR	    ;Do the write
+    btfsc   EECON1, WR
+    goto    $-1
+    bcf	    EECON1, WREN
     btfsc   BUFF, GIE	    ;Check if interrupts enabled
     bsf	    INTCON, GIE	    ;Re-enable interrupts
     bsf     EECON1, RD	    ;Back to read mode
@@ -409,6 +420,14 @@ isr_backspace:
     movwf   BUFF
     call    lcd_write
     bsf	    lcdmode ;back to data mode
+    
+    ;If INST+1 is a multiple of 16, need to go to previous line
+    movfw   INST
+    addlw   .1
+    sublw   0x10
+    andlw   0x1F
+    btfsc   STATUS, Z	;If zero flag set, LCD is empty
+    bsf	    statusled
     retfie
    
 ;LCD helper routines
@@ -610,7 +629,7 @@ out_cell:   ;display byte on LCD  (.)
     return
 
 in_cell: ;load input into byte (,)
-    bsf     INTCON, INTE ;enable keypad interrupt
+    bsf     INTCON, GIE ;enable interrupts for input mode
     clrf    INDF	;clear current cell
     bcf     lcdmode  ;lcd command mode
     movlw   b'00001100'   ;hide cursor
@@ -639,6 +658,7 @@ in_cell: ;load input into byte (,)
     bsf	    inflag  ;set input wait flag, will be cleared by interrupt
     btfsc   inflag
     goto    $-1	    ;loop until inflag clear
+    bcf     INTCON, GIE ;Disable interrupts again
     
     ;write 20 (spaces) to the LCD
     movlw   0x20
@@ -658,7 +678,6 @@ in_cell: ;load input into byte (,)
     call    lcd_write
     bsf	    lcdmode ;back to data mode
     
-    bcf     INTCON, INTE ;disable keypad interrupt again
     bcf     lcdmode	;lcd command mode
     movlw   b'00001111'   ;resume cursor blink
     movwf   BUFF
