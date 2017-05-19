@@ -18,21 +18,21 @@
     __CONFIG _CP_OFF & _PWRTE_ON & _WDT_OFF & _HS_OSC
     ;Fuses: code protect off, poweron timer on, watchdog off, high-speed xtal
 
-#define srdata	    PORTB, 2 ;Physical pin 8
-#define srclock	    PORTB, 3 ;Physical pin 9
-#define srlatch	    PORTB, 1 ;Physical pin 7
-#define	statusled   PORTA, 3 ;Status LED on pin 2
+#define srdata	    PORTB, 2	;Physical pin 8
+#define srclock	    PORTB, 3	;Physical pin 9
+#define srlatch	    PORTB, 1	;Physical pin 7
+#define	statusled   PORTA, 3	;Status LED on pin 2
     
-#define	runbutton   PORTB, 4 ;Run/Edit mode button
-#define inbutton    PORTB, 5 ;Input entry/Backspace button
+#define	runbutton   PORTB, 4	;Run/Edit mode button
+#define inbutton    PORTB, 5	;Input entry/Backspace button
 
-#define lcdmode STA, 7	    ;LCD status bit (command/data)
-#define bfcmode STA, 6	    ;Mode bit (edit/run)
-#define	loopskip STA, 5	    ;Loop skip flag
-#define	inflag	STA, 4	    ;Data input mode flag
+#define lcdmode	    STA, 7	;LCD status bit (command/data)
+#define bfcmode	    STA, 6	;Mode bit (edit/run)
+#define	loopskip    STA, 5	;Loop skip flag
+#define	inflag	    STA, 4	;Data input mode flag
 
-#define cellstart 0x19	    ;First available cell
-#define	cellend	0x4F	    ;Last GPR on the 16F84
+#define cellstart   0x19	;First available cell
+#define	cellend	    0x4F	;Last GPR on the 16F84
 #define	stackoffset 0x11
 
 ; Various special registers:
@@ -79,7 +79,7 @@ isr_onchange:		    ;PORTB onchange interrupt (PORTB 4:7)
     btfsc   STATUS, Z
     retfie
     movlw   .50
-    movwf   DELAY
+    movwf   DELAY	    ;Debounce delay (wait for swtich to stabilize)
     call    wait
     btfsc   runbutton	    ;Mode button pressed, goto isr_run_btn
     goto    isr_run_btn
@@ -222,7 +222,7 @@ disp: ;scan through code in EEPROM until EOF (0x08)
     movfw   INST	    ;Repeat for 32
     sublw   0x20
     andlw   0x1F
-    btfss   STATUS, Z	    ;If screen full (32 chars), clear lcd
+    btfss   STATUS, Z	    ;If screen full (32 chars), clear lcd after delay
     goto    disp
     call    lcd_reset	    ;Clear the screen
     goto    disp
@@ -353,8 +353,11 @@ isr_editor:     ;write command (in W) to eeprom and LCD (as ASCII)
     movfw   INST    ;repeat for 32
     sublw   0x20
     andlw   0x1F
-    btfss   STATUS, Z  ;if screen full (32 chars), clear lcd
+    btfss   STATUS, Z  ;If screen full (32 chars), clear LCD after short pause
     retfie
+    movlw   .200
+    movwf   DELAY
+    call    wait
     call    lcd_reset   ;clear the screen
     retfie
 
