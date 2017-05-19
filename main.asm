@@ -1,5 +1,5 @@
-;PIC 16F84 Brainfuck Computer
-;Dolen Le, 2014-2015
+;PIC16F84 Brainfuck Computer
+;Dolen Le, 2014-2017
     
 ;Instruction Decode as follows:
 ;000 +
@@ -26,13 +26,13 @@
 #define	runbutton   PORTB, 4 ;Run/Edit mode button
 #define inbutton    PORTB, 5 ;Input entry/Backspace button
 
-#define lcdmode STA, 7	;LCD status bit (command/data)
-#define bfcmode STA, 6	;mode bit (edit/run)
-#define	loopskip STA, 5 ;loop skip flag
-#define	inflag	STA, 4	;data input mode flag
+#define lcdmode STA, 7	    ;LCD status bit (command/data)
+#define bfcmode STA, 6	    ;Mode bit (edit/run)
+#define	loopskip STA, 5	    ;Loop skip flag
+#define	inflag	STA, 4	    ;Data input mode flag
 
-#define cellstart 0x19 ;first available cell
-#define	cellend	0x4F ;last GPR on the 16F84
+#define cellstart 0x19	    ;First available cell
+#define	cellend	0x4F	    ;Last GPR on the 16F84
 #define	stackoffset 0x11
 
 ; Various special registers:
@@ -44,7 +44,7 @@ INST    EQU 0x10    ;brainfuck "program counter" and input pointer
     
 ; REGISTERS 0x11 thru 0x18 RESERVED FOR LOOP STACK
 
-    ORG 0x2100 ;Preloaded code in eeprom
+    ORG 0x2100 ;Preloaded code in EEPROM
     ;de 0x7,0x61,0x31,0x33,0x34,0x58 ;cat program
     ;hello world:
     de 0x0,0x0,0x0,0x0,0x76,0x0,0x0,0x76,0x0,0x60,0x0,0x60,0x0,0x60,0x44,0x44
@@ -394,165 +394,53 @@ isr_input:      ;run-mode input ISR
     retfie
 
 isr_backspace:
-    btfsc   statusled
+    btfsc   statusled	    ;Ignore if not editing
     retfie
     movf    INST, F
-    btfsc   STATUS, Z	;Nothing to delete
+    btfsc   STATUS, Z	    ;Nothing to delete
     retfie
     decf    INST
-    movlw   0x08    ;EOF
-    call    write_cmd
-    ;write backspace to the LCD
-    bcf	    lcdmode ;command mode
-    movlw   0x04    ;decrement cursor/addr
+    movlw   0x08	    ;EOF
+    call    write_cmd	    ;Write to EEPROM
+    
+    ;If INST+1 is a multiple of 16, go to previous line
+    incf    INST, W
+    sublw   0x10
+    andlw   0x1F
+    btfss   STATUS, Z
+    goto    isr_backspace_lcd
+    bcf     lcdmode	    ;LCD command mode
+    movlw   0x90	    ;Move cursor (DDRAM) to address 0x10
+    movwf   BUFF
+    call    lcd_write
+    bsf     lcdmode	    ;Back to data mode
+    
+isr_backspace_lcd:	    ;Write backspace to the LCD
+    bcf	    lcdmode	    ;LCD command mode
+    movlw   0x10	    ;Shift cursor left
     movwf   BUFF
     call    lcd_write
     bsf	    lcdmode
-    movlw   0x20    ;ASCII space
+    movlw   0x20	    ;Overwite last character with ASCII space
     movwf   BUFF
     call    lcd_write
-    call    lcd_write	;cursor should move 2 spaces back
-    bcf	    lcdmode ;command mode
-    movlw   0x14
+    bcf	    lcdmode	    ;Command mode
+    movlw   0x10	    ;Shift cursor left again (to the written space)
     movwf   BUFF
     call    lcd_write
-    movlw   0x06    ;increment cursor/addr
-    movwf   BUFF
-    call    lcd_write
-    bsf	    lcdmode ;back to data mode
+    bsf	    lcdmode	    ;Back to data mode
     
-    ;If INST+1 is a multiple of 16, need to go to previous line
-    movfw   INST
-    addlw   .1
-    sublw   0x10
+    ;If INST+1 is a multiple of 32, need to go to previous page
+    incf    INST, W
+    sublw   0x20
     andlw   0x1F
-    btfsc   STATUS, Z	;If zero flag set, LCD is empty
-    bsf	    statusled
-    retfie
-   
-;LCD helper routines
-lcd_print_cmd: ;convert BF command in BUFF to ASCII and write to LCD
-    movfw   BUFF
-    btfsc   BUFF, 2 ;check 3rd bit
-    goto    lcd_print_ptr
-    addlw   0x03 ;convert to ascii
-    iorlw   0x28
-    movwf   BUFF
-    goto    lcd_print_cmd2 ; not a pointer cmd
-
-lcd_print_ptr:     ;pointer control commands (< > and [ ])
-    iorlw   0x3C ;< >
-    btfsc   BUFF, 0 ;check 0th bit
-    xorlw   0x60 ;_ ]
-    movwf   BUFF
-    sublw   0x5F ;correct _ into [
     btfsc   STATUS, Z
-    bcf     BUFF, 2
+    bsf	    statusled	;Just light LED for now
+    retfie
 
-lcd_print_cmd2:
-    call    lcd_write
-    return
-
-lcd_write:      ;write BUFF to the LCD via shift register
-    call    shift4
-    bsf     srdata  ;E=1
-    call    shift2
-    call    right4 ;reset BUFF
-
-    call    shift4
-    bcf     srdata  ;E=0, falling edge reads in data
-    call    shift2
-    movlw   .2
-    movwf   DELAY
-    call    wait   ;delay
-
-    ;repeat for 2nd nibble
-    call    shift4
-    bsf     srdata  ;E=1
-    call    shift2
-    call    right4 ;reset BUFF
-
-    call    shift4
-    bcf     srdata  ;E=0, falling edge reads in data
-    call    shift2
-    movlw   .2
-    movwf   DELAY
-    call    wait   ;delay
-    call    right4
-    call    right4 ;BUFF back to orig. position
-    
-    return
-
-shift4:     ;shift 4 bits of BUFF w/o latching
-    movlw   0x04
-    movwf   COUNT
-l4_loop:
-    rlf     BUFF, F ;rotate left thru carry
-    bcf     srdata
-    btfsc   STATUS, C ;write carry bit to sr data
-    bsf     srdata
-    bsf     srclock ;pulse clock
-    bcf     srclock
-    decfsz  COUNT, F
-    goto    l4_loop ;repeat
-    return
-
-right4:     ;rotate BUFF 4 bits right to original position
-    movlw   0x04
-    movwf   COUNT
-r4_loop:
-    rrf     BUFF, F
-    decfsz   COUNT, F
-    goto    r4_loop
-    return
-
-shift2:     ;shift out the last 2 bits (Enable then RS), then latch
-    bsf     srclock ;shift out
-    bcf     srclock
-    bcf     srdata  ;register zero (cmd)
-    btfsc   lcdmode ;flag for RS
-    bsf     srdata
-    bsf     srclock ;shift out
-    bcf     srclock
-    bsf     srlatch ;latch out data
-    bcf     srlatch
-    return
-
-lcd_reset:    ;initialize LCD - E, RS and D4-D7 to lower 6 bits of 4094
-    bcf     lcdmode      ;LCD command mode
-    movlw   b'00110011' ;initialize lcd (try 2 times)
-    movwf   BUFF
-    call    lcd_write
-    movlw   b'00110000' ;one last try
-    movwf   BUFF
-    call    lcd_write
-    movlw   b'00000010' ;command for 4-bit mode (swapped)
-    movwf   BUFF
-    call    lcd_write
-    movlw   b'00101000'   ;Function set, config display
-    movwf   BUFF
-    call    lcd_write
-    movlw   b'00001111'   ;lcd on w/ blinking cursor
-    movwf   BUFF
-    call    lcd_write
-    movlw   b'00000001'   ;clear disp
-    movwf   BUFF
-    call    lcd_write
-    movlw   b'00000110'   ;enter data, auto increment addr.
-    movwf   BUFF
-    call    lcd_write
-    bsf     lcdmode	;back to lcd data mode
-    return
-
-lcd_line2: ;move lcd cursor to the 2nd line
-    bcf     lcdmode  ;lcd command
-    movlw   0xA8
-    movwf   BUFF
-    call    lcd_write
-    bsf     lcdmode ;back to data mode
-    return
-
-;Brainfuck command routines
+;******************************************************************************
+;		     BRAINFUCK COMMAND HANDLER ROUTINES
+;******************************************************************************
 inc_ptr:    ;increment data pointer (>)
     incf    FSR, F
     movlw   cellend+1	;check overflow
@@ -688,6 +576,128 @@ in_cell: ;load input into byte (,)
 bf_end:	    ;reached end of program, idle
     bsf	    bfcmode
     bsf	    statusled	;turn on status led to indicate done
+    return
+    
+;******************************************************************************
+;			 LCD DRIVER HELPER ROUTINES
+;******************************************************************************
+;Convert BF command in BUFF to ASCII and write to LCD (could use lookup tbl)
+lcd_print_cmd:
+    movfw   BUFF
+    btfsc   BUFF, 2	    ;Check 3rd bit
+    goto    lcd_print_ptr
+    addlw   0x03	    ;Convert to ASCII
+    iorlw   0x28
+    movwf   BUFF
+    goto    lcd_print_end   ;Not a pointer cmd
+
+lcd_print_ptr:		    ;Handle pointer control commands (< > and [ ])
+    iorlw   0x3C	    ;'<' and '>'
+    btfsc   BUFF, 0	    ;Check 0th bit
+    xorlw   0x60	    ;'_' and ']'
+    movwf   BUFF
+    sublw   0x5F	    ;Correct '_' into '['
+    btfsc   STATUS, Z
+    bcf     BUFF, 2
+
+lcd_print_end:
+    call    lcd_write
+    return
+
+lcd_write:		    ;Write BUFF to the LCD via shift register
+    call    lcd_shift4
+    bsf     srdata	    ;E=1
+    call    lcd_shift2
+    call    lcd_right4	    ;Reset BUFF
+
+    call    lcd_shift4
+    bcf     srdata	    ;E=0, falling edge reads in data
+    call    lcd_shift2
+    movlw   .2
+    movwf   DELAY
+    call    wait	    ;Delay 2ms
+
+    ;Repeat for 2nd nibble
+    call    lcd_shift4
+    bsf     srdata	    ;E=1
+    call    lcd_shift2
+    call    lcd_right4	    ;Reset BUFF
+
+    call    lcd_shift4
+    bcf     srdata	    ;E=0, falling edge reads in data
+    call    lcd_shift2
+    movlw   .2
+    movwf   DELAY
+    call    wait	    ;Delay 2ms
+    return
+
+lcd_shift4:		    ;Shift 4 bits of BUFF w/o latching
+    movlw   0x04
+    movwf   COUNT
+lcd_shift4_loop:
+    rlf     BUFF, F	    ;Rotate left thru carry
+    bcf     srdata
+    btfsc   STATUS, C	    ;Write carry bit to shift register input
+    bsf     srdata
+    bsf     srclock	    ;Pulse clock
+    bcf     srclock
+    decfsz  COUNT, F
+    goto    lcd_shift4_loop ;Repeat 4x
+    return
+
+lcd_right4:		    ;Rotate BUFF 4 bits right to original position
+    rrf     BUFF, F
+    rrf     BUFF, F
+    rrf     BUFF, F
+    rrf     BUFF, F
+    return
+
+;Shift out the last 2 bits (Enable then RS), then latch
+lcd_shift2:
+    bsf     srclock	    ;Shift out
+    bcf     srclock
+    bcf     srdata	    ;Register zero (cmd)
+    btfsc   lcdmode	    ;Check mode flag for RS
+    bsf     srdata
+    bsf     srclock	    ;Shift out
+    bcf     srclock
+    bsf     srlatch	    ;Latch out data
+    bcf     srlatch
+    return
+
+;Initialize HD44780 LCD - E, RS and D4-D7 to lower 6 bits of 4094
+lcd_reset:
+    bcf     lcdmode	    ;LCD command mode
+    movlw   b'00110011'	    ;Initialize LCD controller (try 2 times)
+    movwf   BUFF
+    call    lcd_write
+    movlw   b'00110000'	    ;Init again
+    movwf   BUFF
+    call    lcd_write
+    movlw   b'00000010'	    ;Command for 4-bit mode (swapped)
+    movwf   BUFF
+    call    lcd_write
+    movlw   b'00101000'	    ;Function set, config display
+    movwf   BUFF
+    call    lcd_write
+    movlw   b'00001111'	    ;LCD ON w/ blinking cursor
+    movwf   BUFF
+    call    lcd_write
+    movlw   b'00000001'	    ;Clear disp
+    movwf   BUFF
+    call    lcd_write
+    movlw   b'00000110'	    ;Enter data, auto increment addr.
+    movwf   BUFF
+    call    lcd_write
+    bsf     lcdmode	    ;Back to LCD data mode
+    return
+
+lcd_line2:		    ;Move LCD cursor to the 2nd line
+    bcf     lcdmode	    ;LCD command mode
+    movlw   0xA8
+    movwf   BUFF
+    call    lcd_write
+    bsf     lcdmode	    ;Back to data mode
     return
 
 wait:    ;wait approx. DELAY millisecs
