@@ -8,14 +8,14 @@ Because the PIC lacks the necessary pins to drive the LCD and read all the butto
 ### About Brainfuck
 Brainfuck is an esoteric programming language which comprises just eight commands. Six of the commands provide the functionality of a Turing machine, and the other two enable input and output. The computer’s memory is divided into cells, which are initialized to zero at startup. A movable cell pointer, which starts at the first cell, indicates the current “working cell,” whose value can be incremented, decremented, output, or loaded with input.
 
-  `>`	  increment the data pointer (to point to the next cell to the right).
-  `<`	  decrement the data pointer (to point to the next cell to the left).
-  `+`	  increment (increase by one) the byte at the data pointer.
-  `-`	  decrement (decrease by one) the byte at the data pointer.
-  `.`	  output the byte at the data pointer.
-  `,`	  accept one byte of input, storing its value in the byte at the data pointer.
-  `[`	  Jump past the matching ] if the cell under the pointer is 0
-  `]`	  Jump back to the matching [ if the cell under the pointer is nonzero
+-  `>`	  increment the data pointer (to point to the next cell to the right).
+-  `<`	  decrement the data pointer (to point to the next cell to the left).
+-  `+`	  increment (increase by one) the byte at the data pointer.
+-  `-`	  decrement (decrease by one) the byte at the data pointer.
+-  `.`	  output the byte at the data pointer.
+-  `,`	  accept one byte of input, storing its value in the byte at the data pointer.
+-  `[`	  Jump past the matching ] if the cell under the pointer is 0
+-  `]`	  Jump back to the matching [ if the cell under the pointer is nonzero
 
 For example, the following program prints “Hello World!” (in the ASM, it is loaded by default into EEPROM)
 
