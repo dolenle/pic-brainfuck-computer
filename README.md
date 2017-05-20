@@ -22,7 +22,7 @@ For example, the following program prints “Hello World!” (in the ASM, it is 
 `++++++++[>++++[>++>+++>+++>+<<<<-]>+>+>->>+[<]<-]>>.>---.+++++++..+++.>>.<-.<.+++.------.--------.>>+.`
 
 ## Instructions
-- On reset, the computer starts in editor mode. While in editor mode, Brainfuck code can be entered on the keypad. The OK button provides a partial backspace functionality (currently, you cannot go back to the previous page of code).
+- On reset, the computer starts in editor mode. While in editor mode, Brainfuck code can be entered on the keypad. Press the backspace button to delete the last entry.
 - In editor mode, press the RUN button to execute the Brainfuck program. When the program finishes, the LED will illuminate. Pressing the button again will return to editor mode. (If the program does not halt, the computer needs to be reset).
 - If the program requests input, hexadecimal 00 will be displayed at the current LCD cursor position. Use the Brainfuck command keys to toggle each bit in the byte, with the most- and least-significant bits corresponding to the leftmost and rightmost buttons respectively. Once the desired value is shown press the OK button to confirm the entry and continue running the program.
 - To clear the Brainfuck code, hold down the RUN button while pressing RESET, and release it before the splash screen disappears. The LED will illuminate briefly and “EEPROM Cleared” will display on the LCD.
