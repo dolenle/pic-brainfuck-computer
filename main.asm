@@ -342,6 +342,8 @@ write_cmd_end:
     return
 
 isr_editor:		    ;Editor mode command keypad ISR handler
+    btfsc   statusled	    ;If in idle loop don't do anything
+    retfie
     call    write_cmd	    ;Write command (in W) to EEPROM and LCD (as ASCII)
     movfw   EEDATA
     btfss   INST, 0
