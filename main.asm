@@ -237,20 +237,26 @@ edit_ready:
     bsf     INTCON, GIE	    ;Global interrupt enable
 
 edit_idle:		    ;Main idle loop for editor mode
-    btfsc   bfcmode
+    btfsc   bfcmode	    ;Break out of loop if RUN button was pressed
     goto    edit_idle
-    btfss   EEDATA, 3	    ;Don't re-write EOF if no changes were made
-    btfsc   EEDATA, 7
+
+    ;Don't re-write EOF if it is already there
+    movfw   EEDATA
+    btfss   INST, 0
+    swapf   EEDATA, W	    ;Swap nybbles if even instruction
+    andlw   0x0F
+    sublw   0x08	    
+    btfsc   STATUS, Z	    ;Check for EOF
     goto    run
     movlw   0x08	    ;Write EOF
     call    write_cmd
     goto    run
 
-idle:			    ;Waiting loop after done executing
+run_idle:		    ;Idle loop after done executing
     bsf	    INTCON, GIE
-    btfss   statusled	    ;Check status (cleared by ISR)
+    btfss   statusled	    ;Check if EDIT was pressed (cleared by ISR)
     goto    edit_start
-    goto    idle
+    goto    run_idle
 
 run:
     call    lcd_reset
@@ -290,7 +296,7 @@ run_loop:
     call    bf_decode
     incf    INST, F
     btfsc   bfcmode	    ;Check mode
-    goto    idle	    ;Stop running
+    goto    run_idle	    ;Stop running
     goto    run_loop	    ;Continue
     
 run_loop_skip:
