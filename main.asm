@@ -45,11 +45,12 @@ STA     EQU 0x0F    ;Status/flag bits
 INST    EQU 0x10    ;brainfuck "program counter" and input pointer
 
     ORG 0x2100 ;Preloaded code in EEPROM
-    ;hello world:
-    de 0x0,0x0,0x0,0x0,0x76,0x0,0x0,0x76,0x0,0x60,0x0,0x60,0x0,0x60,0x44,0x44
-    de 0x25,0x60,0x60,0x62,0x66,0x7,0x45,0x42,0x56,0x63,0x62,0x22,0x30,0x0
-    de 0x0,0x0,0x33,0x0,0x3,0x66,0x34,0x23,0x43,0x0,0x3
-    de 0x22,0x22,0x22,0x32,0x22,0x22,0x22,0x23,0x66,0x3,0x80
+    ;Hello, World!
+    ;(shorter version from https://codegolf.stackexchange.com/questions/55422/hello-world/68494)
+    ;--->->->>+>+>>+[++++[>+++[>++++>-->+++<<<-]<-]<+++]>>>.>-->-.>..+>++++>+++.+>-->[>-.<<]
+    de 0x22,0x26,0x26,0x26,0x60,0x60,0x66,0x7,0x0,0x0,0x76,0x0,0x7,0x60,0x0,0x6
+    de 0x22,0x60,0x0,0x44,0x42,0x54,0x25,0x40,0x0,0x56,0x66,0x36,0x22,0x62,0x36
+    de 0x33,0x6,0x0,0x0,0x60,0x0,0x30,0x62,0x26,0x76,0x23,0x44,0x58
     
     ORG 0x00
     goto    start
@@ -189,7 +190,11 @@ start_cont:
     movwf   BUFF
     call    lcd_write
     bsf     lcdmode         ;Data mode
+    ;Fall through to editor mode
 
+;******************************************************************************
+;           EDITOR MODE
+;******************************************************************************
 edit_start:
     bcf     statusled
     bcf     INTCON, GIE     ;Disable global interrupts
@@ -244,7 +249,11 @@ edit_idle:                  ;Main idle loop for editor mode
     goto    run             ;Don't re-write EOF if it is already there
     movlw   0x08            ;Edits were made; write new EOF
     call    write_cmd
+    ;Fall through to run mode
 
+;******************************************************************************
+;           RUN MODE
+;******************************************************************************
 run:
     call    lcd_reset
     bcf     loopffwd        ;Clear loop skip flag
@@ -286,17 +295,16 @@ run_loop:                   ;Main BF execution loop
 
 loop_skip:                  ;Skip to beginning/end of loop (matching '[' or ']')
     movwf   BUFF            ;Store the instruction temporarily
-    btfsc   loopffwd        
-    sublw   0x07            ;Skip forwards: check for [ (nested loop)
-    btfsc   loopback
-    sublw   0x05            ;Skip backwards: check for ] (nested loop)
+    movlw   0x05            ;Skipping backwards: check for ] (nested loop)
+    btfsc   loopffwd        ;Skipping forwards: check for [ (nested loop)
+    addlw   2               ;Add 2 to get 0x07 ([)
+    subwf   BUFF, W         ;Subtract and check for equality
     btfsc   STATUS, Z
     incf    COUNT, F        ;Increment nested loop counter
-    movfw   BUFF
-    btfsc   loopffwd
-    sublw   0x05            ;Skip forwards: check for ]
-    btfsc   loopback
-    sublw   0x07            ;Skip backwards: check for [
+    movlw   0x05            ;Skipping forwards: check for ] (end of loop)
+    btfsc   loopback        ;Skipping backwards: check for [ (start of loop)
+    addlw   2               ;Add 2 to get 0x07 ([)
+    subwf   BUFF, W         ;Subtract and check for equality
     btfss   STATUS, Z
     goto    loop_skip_cont
     decfsz  COUNT, F        ;If counter is zero, we are at the matching brace
